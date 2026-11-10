@@ -4,6 +4,9 @@
 //
 // One engine per process (the firmware keeps its state in global variables): only the instance that owns the
 // engine makes sound. See README "Known limits".
+//
+// Threads: everything on Engine must be called from the audio thread (or before audio starts), except where a
+// function says otherwise.
 #pragma once
 #include <algorithm>
 #include <array>
@@ -123,6 +126,24 @@ public:
     void setTempo (double bpm)           { if (owner && initialised) elxar_set_tempo ((float) bpm); }
     void setFader (int voice, float g)   { if (owner && initialised) elxar_set_fader ((uint8_t) voice, g); }
     void silenceFx()                     { if (owner && initialised) elxar_silence_fx(); }
+    bool ready() const                   { return owner && initialised; }
+
+    // ---- the firmware's step sequencer (see elxar_engine.h) ----
+    void seqWriteTrack (int pattern, int track, const ElxarStep* steps, int length)
+    {
+        if (owner && initialised) elxar_seq_write_track ((uint8_t) pattern, (uint8_t) track, steps, (uint8_t) std::clamp (length, 1, ELXAR_NUM_STEPS));
+    }
+    void seqWriteShuffle (int pattern, int shuffle) { if (owner && initialised) elxar_seq_write_shuffle ((uint8_t) pattern, (uint8_t) std::clamp (shuffle, 0, 127)); }
+    void seqStart (uint32_t absoluteStep)  { if (owner && initialised) elxar_seq_start (absoluteStep); }
+    void seqLocate (uint32_t absoluteStep) { if (owner && initialised) elxar_seq_locate (absoluteStep); }
+    void seqStop()                         { if (owner && initialised) elxar_seq_stop(); }
+    void seqPulse()                        { if (owner && initialised) elxar_seq_pulse(); }
+    bool seqRunning() const                { return owner && initialised && elxar_seq_running() != 0; }
+    void seqSelectPattern (int pattern)    { if (owner && initialised) elxar_seq_select_pattern ((uint8_t) std::clamp (pattern, 0, ELXAR_NUM_PATTERNS - 1)); }
+    int  seqActivePattern() const          { return owner && initialised ? (int) elxar_seq_active_pattern() : 0; }
+    int  seqPosition (int track) const     { return owner && initialised ? elxar_seq_position ((uint8_t) track) : -1; }
+    float seqShuffle() const               { return owner && initialised ? elxar_seq_shuffle() : 0.0f; }
+    uint32_t seqTriggerCount (int track) const { return owner && initialised ? elxar_seq_trigger_count ((uint8_t) track) : 0u; }
 
     // Render n frames at the host rate.
     void render (float* outL, float* outR, int n)
@@ -178,5 +199,68 @@ private:
     BlockResampler rsL, rsR;
     std::array<float, kFifoSize> fifoL {}, fifoR {};
     int fifoRead = 0, fifoCount = 0;
+};
+// Turns the host's song position into clock pulses for the firmware sequencer.
+//
+// The firmware sequencer wants 24 pulses for every step (a step is a 16th note). On the hardware a millisecond
+// timer makes them; here they are worked out from where the song is, so the pattern stays locked to the host:
+//   - when the host starts, or jumps (cycle, locate), the sequencer is put on the matching step,
+//   - shuffle delays every second step, by the same amount as the firmware's own clock does
+//     (shuffle x 16 pulses; the pulses that fall inside the delay are sent together when it ends).
+// The same class is used by the plugin and by the headless engine_test.
+class SeqClock
+{
+public:
+    static constexpr int kMaxPulses = 2048;
+
+    void reset() { running = false; expected = -1.0e18; nextPulse = 0; }
+    bool isRunning() const { return running; }
+
+    // Call once per audio block, before rendering it.
+    //   run            : should the sequencer run in this block?
+    //   posSteps       : song position at the start of the block, in steps (quarter notes x 4)
+    //   stepsPerSample : tempo
+    // Writes the sample offsets (inside this block, rising) at which engine.seqPulse() must be called, returns how many.
+    int advance (Engine& engine, bool run, double posSteps, double stepsPerSample, int numSamples, int* offsets)
+    {
+        if (! run || ! (stepsPerSample > 0.0) || numSamples <= 0 || ! engine.ready())
+        {
+            if (running) { engine.seqStop(); running = false; }
+            expected = -1.0e18;
+            return 0;
+        }
+        const double end = posSteps + stepsPerSample * (double) numSamples;
+        // Not running yet, or the song position is not where the last block left it (more than half a step away).
+        if (! running || std::abs (posSteps - expected) > 0.5)
+        {
+            // Start on the next step line (or this one, if the position is exactly on it). Nothing plays before the song start.
+            double k0 = std::ceil (posSteps - 1.0e-6);
+            if (k0 < 0.0) k0 = 0.0;
+            if (k0 > 4.0e9) k0 = std::fmod (k0, 3840.0);
+            const auto step = (uint32_t) k0;
+            if (! running) engine.seqStart (step); else engine.seqLocate (step);
+            running = true;
+            nextPulse = (long long) step * ELXAR_PULSES_PER_STEP;
+        }
+        expected = end;
+        const double shuffleDelay = (double) engine.seqShuffle() * 16.0 / (double) ELXAR_PULSES_PER_STEP;   // in steps
+        int n = 0;
+        while (n < kMaxPulses)
+        {
+            const long long k = nextPulse / ELXAR_PULSES_PER_STEP;
+            const int p = (int) (nextPulse % ELXAR_PULSES_PER_STEP);
+            double t = (double) k + (double) p / (double) ELXAR_PULSES_PER_STEP;
+            if ((k & 1) != 0 && shuffleDelay > 0.0) t = std::max (t, (double) k + shuffleDelay);
+            if (t >= end - 1.0e-9) break;
+            offsets[n++] = std::clamp ((int) ((t - posSteps) / stepsPerSample), 0, numSamples - 1);
+            ++nextPulse;
+        }
+        return n;
+    }
+
+private:
+    bool running = false;
+    double expected = -1.0e18;   // where the song should be at the start of the next block
+    long long nextPulse = 0;     // step x 24 + pulse inside the step
 };
 } // namespace elxar

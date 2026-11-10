@@ -166,6 +166,23 @@ void euklid_generate(uint8_t trackNr, uint8_t patternNr)
 	euklid_transferPattern(trackNr, patternNr);
 }
 //-----------------------------------------------------
+/* ELXAR-Two change (added): the same calculation as euklid_generate(), but the result is handed back as 64 bits
+ * (bit 0 = step 1) instead of being written into a pattern. The plugin keeps its own copy of the patterns.
+ * Length 1 to 16, as in the firmware's menu. */
+uint64_t euklid_elxarCompute(uint8_t length, uint8_t steps, uint8_t rotation)
+{
+	if(length<1) length=1;
+	if(length>16) length=16; /* the firmware's menu allows 1 to 16; above 17 this calculation never ends or miscounts (16-bit groups) */
+	if(steps>length) steps=length;
+	if(steps==0)steps++;
+	euklid_nextCnt1 = 0;
+	euklid_originalLength = length;
+	euklid_patternBuffer.quadword = 0;
+	euklid_calcRecursive(length,steps,1,1,0);
+	euklid_rotatePattern(length, rotation);
+	return euklid_patternBuffer.quadword;
+}
+//-----------------------------------------------------
 uint8_t euklid_getLength(uint8_t trackNr)
 {
 	return euklid_length[trackNr];
@@ -232,8 +249,10 @@ void euklid_transferPattern(uint8_t trackNr, uint8_t patternNr)
 	}
 // **PATROT - pattern end is now stored differently
 
+#ifndef ELXAR_TWO_HOST /* ELXAR-Two change: keep 16 as 16. Most of the sequencer does not treat 0 as 16 (firmware review S-B1) */
 	if(len == 16)
 		len=0;
+#endif
 #if USE_PATTERN_EDIT_BUFFER
 	patternBackupBuffer.length[trackNr]=len;
 #else

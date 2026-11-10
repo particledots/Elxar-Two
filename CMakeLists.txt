@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(ELXAR_Two VERSION 0.1.0 LANGUAGES C CXX)
+project(ELXAR_Two VERSION 0.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,6 +25,9 @@ add_library(elxar_core STATIC
   ${LXR}/Src/Soundengine/FxBus.c
   ${LXR}/Src/Soundengine/MIDI/ParameterArray.c
   ${LXR}/Src/Soundengine/MIDI/MidiParser.c
+  ${LXR}/Src/Soundengine/MIDI/MidiVoiceControl.c
+  ${LXR}/Src/Soundengine/Sequencer/sequencer.c
+  ${LXR}/Src/Soundengine/Sequencer/EuklidGenerator.c
   ${LXR}/Src/Parameters.c
   ${LXR}/Src/menu/Cc2Text.c
   ${LXR}/Src/Preset/initKit.c
@@ -79,6 +82,9 @@ if(ELXAR_BUILD_PLUGIN)
   if(APPLE)
     list(APPEND FORMATS AU)
   endif()
+  # For trying the window without a host (not part of the download): -DELXAR_EXTRA_FORMATS=Standalone
+  set(ELXAR_EXTRA_FORMATS "" CACHE STRING "Extra plugin formats for local testing")
+  list(APPEND FORMATS ${ELXAR_EXTRA_FORMATS})
 
   # AU instrument: JUCE sets the Audio Unit type to kAudioUnitType_MusicDevice ("aumu") when IS_SYNTH is TRUE.
   juce_add_plugin(ELXAR_Two
@@ -109,4 +115,24 @@ if(ELXAR_BUILD_PLUGIN)
     juce::juce_audio_utils
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)
+
+  # Plugin test (not part of the download): runs the plugin code without a host. Off unless asked for:
+  #   cmake -S . -B build -DELXAR_BUILD_PLUGIN_TEST=ON && cmake --build build --target ELXAR_Two_PluginTest
+  option(ELXAR_BUILD_PLUGIN_TEST "Build the plugin test program" OFF)
+  if(ELXAR_BUILD_PLUGIN_TEST)
+    juce_add_console_app(ELXAR_Two_PluginTest)
+    target_sources(ELXAR_Two_PluginTest PRIVATE
+      tools/plugin_test/plugin_test.cpp
+      src/PluginProcessor.cpp
+      src/PluginEditor.cpp)
+    target_include_directories(ELXAR_Two_PluginTest PRIVATE src)
+    target_compile_definitions(ELXAR_Two_PluginTest PRIVATE
+      JUCE_WEB_BROWSER=0
+      JUCE_USE_CURL=0
+      ELXAR_VERSION_STRING="${PROJECT_VERSION}")
+    target_link_libraries(ELXAR_Two_PluginTest PRIVATE
+      elxar_core
+      juce::juce_audio_utils
+      juce::juce_recommended_config_flags)
+  endif()
 endif()

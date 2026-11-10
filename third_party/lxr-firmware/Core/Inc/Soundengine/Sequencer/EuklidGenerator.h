@@ -26,4 +26,7 @@ void euklid_setSteps(uint8_t trackNr, uint8_t value, uint8_t patternNr);
 void euklid_setRotation(uint8_t trackNr, uint8_t value, uint8_t patternNr);
 void euklid_rotatePattern(uint8_t length, uint8_t amount);
 void euklid_transferPattern(uint8_t trackNr, uint8_t patternNr);
+/* ELXAR-Two change (added): see EuklidGenerator.c */
+uint64_t euklid_elxarCompute(uint8_t length, uint8_t steps, uint8_t rotation);
+void euklid_calcRecursive(uint8_t length, uint8_t steps, uint8_t iteration, uint16_t group1, uint16_t group2);
 #endif /* EUKLIDGENERATOR_H_ */

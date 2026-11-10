@@ -1,8 +1,8 @@
 /* ELXAR-Two: glue between the plugin and the LXR-02 firmware sound engine.
  *
  * Everything that makes sound is the firmware's own code. This file only
- *   1. provides the few things the engine expects from the rest of the firmware (menu, sequencer, front panel,
- *      faders, MIDI ports, random number chip) as small stand-ins, and
+ *   1. provides the few things the engine and the sequencer expect from the rest of the firmware (menu,
+ *      front panel lights, SD card, trigger jacks, faders, MIDI ports, random number chip) as small stand-ins, and
  *   2. offers the simple functions declared in elxar_engine.h.
  *
  * GPL-3.0-only. The approach follows LXRXXL (github.com/sunskiefer/LXR02XXL, src/lxr/lxr_dsp.c). */
@@ -30,6 +30,13 @@
 #include "Soundengine/FxBus.h"
 #include "Soundengine/Sequencer/sequencer.h"
 #include "Soundengine/Sequencer/clockSync.h"
+#include "Soundengine/Sequencer/EuklidGenerator.h"
+#include "Soundengine/TriggerOut.h"
+#include "Soundengine/MIDI/CortexParser.h"
+#include "Soundengine/DSPAudio/automationNode.h"
+#include "Preset/PresetManager.h"
+#include "ledHandler.h"
+#include "buttonHandler.h"
 #include "Soundengine/USB/usb_manager.h"
 #include "Preset/InitKit.h"
 #include "menu/menu.h"
@@ -53,11 +60,9 @@ ElxarGpio elxar_jacks = { 1u };              /* every output jack "plugged in" (
 uint8_t menu_activePage = 0;
 uint8_t frontParser_activeTrack = 0;
 RNG_HandleTypeDef hrng;
-PatternSet seq_patternSet;                   /* only touched by the firmware's MIDI note recording, unused here */
 
 static float g_fader[6] = { 1.f, 1.f, 1.f, 1.f, 1.f, 1.f };
 static float g_bpm = 120.f;
-static uint8_t g_mutes;
 static float g_dcXL, g_dcYL, g_dcXR, g_dcYR;
 
 /* faders */
@@ -74,43 +79,57 @@ uint32_t GetRngValue(void)
     return g_rng;
 }
 
-/* sequencer (the firmware sequencer is not connected in Milestone 1) */
-uint16_t seq_getBpm(void) { return (uint16_t)(g_bpm + 0.5f); }
-uint8_t seq_getExtSync(void) { return 0; }
-uint8_t seq_isRunning(void) { return 0; }
-uint8_t seq_isTrackMuted(uint8_t trackNr) { return trackNr < 8 ? (uint8_t)((g_mutes >> trackNr) & 1u) : 0; }
-void seq_setMute(uint8_t trackNr, uint8_t isMuted)
-{
-    if (trackNr > 7) return;
-    if (isMuted) g_mutes |= (uint8_t)(1u << trackNr); else g_mutes &= (uint8_t)~(1u << trackNr);
-}
-void seq_addNote(uint8_t trackNr, uint8_t vel, uint8_t note) { (void)trackNr; (void)vel; (void)note; }
-void seq_midiNoteOff(uint8_t chan) { (void)chan; }
-void seq_sendMidiNoteOn(const uint8_t channel, const uint8_t note, const uint8_t veloc) { (void)channel; (void)note; (void)veloc; }
-void seq_recordAutomation(uint8_t voice, uint8_t dest, uint8_t value) { (void)voice; (void)dest; (void)value; }
-void seq_setNextPattern(const uint8_t patNr) { (void)patNr; }
-void seq_setRunning(uint8_t isRunning) { (void)isRunning; }
-void seq_sync(void) {}
+/* ---- what the firmware's sequencer (sequencer.c, compiled whole since Milestone 2) expects from the front
+ * panel, the SD card, the trigger jacks and the MIDI ports. None of these exist in the plugin. ---- */
+uint8_t frontParser_shownPattern = 0;
+uint8_t menu_playedPattern = 0, menu_shownPattern = 0, menu_activeBar = 0, menu_songMenuPosition = 0;
+uint8_t menu_selectedPresetNr[NUM_PRESET_LOCATIONS];
+uint8_t menu_loadedPresetNr[NUM_CURRENT];
+uint8_t midi_process_block = 0;
+uint8_t trigger_clockReceived = 0;
+uint32_t sync_delayedStepTimer = 0;
+
+void sync_tick(void) {}
 void sync_midiResetPosition(void) {}
 void sync_midiStartStop(uint8_t isStart) { (void)isStart; }
+void trigger_clockTick(uint8_t onOff, uint8_t cnt) { (void)onOff; (void)cnt; }
+void trigger_reset(uint8_t value) { (void)value; }
+void preset_touchTimer(PresetTimer type) { (void)type; }
+void preset_loadDrumsetRam(uint8_t presetNr, uint8_t isMorph, uint8_t sendImmediate) { (void)presetNr; (void)isMorph; (void)sendImmediate; }
+uint8_t buttonHandler_getMode(void) { return 0; }
+void led_blinkHandler(void) {}
+void led_clearActive_step(void) {}
+void led_clearAllBlinkLeds(void) {}
+void led_clearSequencerLeds(void) {}
+uint8_t led_idx2StepLed(uint8_t idx) { return idx; }
+void led_initPatternSelectLeds(void) {}
+void led_resetBlinkTimer(void) {}
+void led_setActive_step(uint8_t stepNr) { (void)stepNr; }
+void led_setBlinkLed(const uint8_t ledNr, const uint8_t onOff) { (void)ledNr; (void)onOff; }
+void led_setValue(uint8_t val, uint8_t ledNr) { (void)val; (void)ledNr; }
+void led_updateSeqLeds(void) {}
+void menu_repaintAll(void) {}
+void menu_setShownPattern(uint8_t patternNr) { menu_shownPattern = patternNr; }
+void uart_sendFrontpanelSysExByte(uint8_t data) { (void)data; }
 
 /* menu / front panel / MIDI ports */
 uint8_t menu_getActiveVoice(void) { return 0; }
 uint8_t menu_getSubPage(void) { return 0; }
-uint8_t menu_getViewedPattern(void) { return 0; }
+uint8_t menu_getViewedPattern(void) { return menu_shownPattern; }
 void menu_repaint(void) {}
 void menu_switchSubPage(uint8_t subPageNr, uint8_t toggle) { (void)subPageNr; (void)toggle; }
-void uart_sendFrontpanelByte(uint8_t data) { (void)data; }
 void uart_sendMidi(MidiMsg msg) { (void)msg; }
 void usb_sendMidi(MidiMsg msg) { (void)msg; }
 
-/* MidiVoiceControl.c: voiceControl_noteOn without the MIDI-out and LED parts */
-void voiceControl_noteOn(uint8_t voice, uint8_t note, uint8_t vel)
+/* The firmware tells the front panel about every note (to flash a light): "note on" byte, then the track.
+ * The plugin uses that to count what the sequencer plays (for the headless test). */
+static uint32_t g_seqTriggers[NUM_TRACKS];
+static uint8_t g_panelByteState;
+void uart_sendFrontpanelByte(uint8_t data)
 {
-    if (voice < 3) Drum_trigger(voice, vel, note);
-    else if (voice < 4) Snare_trigger(vel, note);
-    else if (voice < 5) Cymbal_trigger(vel, note);
-    else if (voice < 7) HiHat_trigger(vel, (uint8_t)(voice - 5), note);
+    if (g_panelByteState == 0) { if (data == NOTE_ON) g_panelByteState = 1; }
+    else if (g_panelByteState == 1) { if (data < NUM_TRACKS) g_seqTriggers[data]++; g_panelByteState = 2; }
+    else g_panelByteState = 0;
 }
 
 /* ------------------------------------------------------------------------------------------------------------
@@ -230,7 +249,18 @@ void elxar_init(void)
     HiHat_init();
     Cymbal_init();
     paramToModTargetInit();
-    g_mutes = 0;
+    /* the sequencer part of soundengine_init() */
+    seq_init();
+    euklid_init();
+    seq_setExtSync(0);
+    seq_setSongModeEnabled(0);
+    seq_setRecordingMode(0);
+    seq_setErasingMode(0);
+    seq_setRunning(0);
+    seq_setNextPattern(0);
+    seq_copyPatternToBackupBuffer(0);
+    memset(g_seqTriggers, 0, sizeof g_seqTriggers);
+    g_panelByteState = 0;
     g_dcXL = g_dcYL = g_dcXR = g_dcYR = 0.f;
     for (i = 0; i < 6; i++) g_fader[i] = 1.f;
     elxar_load_init_kit();
@@ -250,7 +280,7 @@ void elxar_set_tempo(float bpm)
     if (bpm > 999.f) bpm = 999.f;
     if (bpm != g_bpm) {
         g_bpm = bpm;
-        lfo_recalcSync();
+        seq_setBpm((uint16_t)(bpm + 0.5f));   /* the firmware keeps whole BPM; used for tempo-synced LFOs */
     }
 }
 
@@ -284,3 +314,114 @@ void elxar_render_block(float* outL, float* outR)
         outR[i] = g_dcYR;
     }
 }
+
+/* ------------------------------------------------------------------------------------------------------------
+ * The firmware sequencer, clocked by the plugin
+ * ---------------------------------------------------------------------------------------------------------- */
+
+/* A step's automation target is stored the way the firmware's front panel code stores it (CortexParser.c,
+ * FRONT_SET_P1_DEST): parameters 1..127 as number + 1, parameters from 128 as the number itself, and
+ * NO_AUTOMATION for none. */
+static uint8_t automation_code(uint8_t targetIndex)
+{
+    uint16_t par;
+    if (targetIndex == 0 || targetIndex >= getNumModTargets()) return NO_AUTOMATION;
+    par = modTargets[targetIndex].param;
+    if (par == PAR_NONE || par >= END_OF_SOUND_PARAMETERS) return NO_AUTOMATION;
+    return (uint8_t)(par < 128u ? par + 1u : par);
+}
+
+void elxar_seq_write_track(uint8_t pattern, uint8_t track, const ElxarStep* steps, uint8_t length)
+{
+    uint8_t i, bar;
+    uint16_t mainSteps[NUM_BARS];
+    if (pattern >= NUM_PATTERN || track >= NUM_TRACKS || steps == 0) return;
+    if (length < 1) length = 1;
+    if (length > NUM_STEPS) length = NUM_STEPS;
+    memset(mainSteps, 0, sizeof mainSteps);
+    for (i = 0; i < NUM_STEPS; i++) {
+        Step* d = &seq_patternSet.seq_subStepPattern[pattern][track][i];
+        const ElxarStep* s = &steps[i];
+        d->volume = (uint8_t)((s->velocity > 127 ? 127 : s->velocity) | (s->on ? STEP_ACTIVE_MASK : 0));
+        d->prob = (uint8_t)(s->probability > 100 ? 100 : s->probability);
+        d->note = (uint8_t)(s->note > 127 ? 127 : s->note);
+        d->param1Nr = automation_code(s->autoTarget[0]);
+        d->param1Val = (uint8_t)(s->autoValue[0] > 127 ? 127 : s->autoValue[0]);
+        d->param2Nr = automation_code(s->autoTarget[1]);
+        d->param2Val = (uint8_t)(s->autoValue[1] > 127 ? 127 : s->autoValue[1]);
+        seq_patternSet.seq_stepTiming[pattern][track][i].flam = (uint8_t)(s->flam > 5 ? 0 : s->flam);
+        seq_patternSet.seq_stepTiming[pattern][track][i].shift = (uint8_t)(s->shift > 14 ? ELXAR_SHIFT_NONE : s->shift);
+        if (s->on) mainSteps[i / 16] |= (uint16_t)(1u << (i % 16));
+    }
+    for (bar = 0; bar < NUM_BARS; bar++) seq_patternSet.seq_mainSteps[bar][pattern][track] = mainSteps[bar];
+    seq_patternSet.length[pattern][track] = length;
+}
+
+void elxar_seq_write_shuffle(uint8_t pattern, uint8_t shuffle)
+{
+    if (pattern >= NUM_PATTERN) return;
+    if (shuffle > 127) shuffle = 127;
+    seq_patternSet.shuffle[pattern] = shuffle;
+    if (pattern == seq_activePattern) {   /* as the firmware does when a pattern becomes active */
+        activeParameters[PAR_SHUFFLE] = shuffle;
+        seq_setShuffle(shuffle / 127.f);
+    }
+}
+
+void elxar_seq_start(uint32_t absoluteStep)
+{
+    seq_setRunning(1);
+    seq_elxarLocate(absoluteStep);
+}
+
+void elxar_seq_locate(uint32_t absoluteStep)
+{
+    voiceControl_noteOff(0xFF);
+    seq_elxarLocate(absoluteStep);
+}
+
+void elxar_seq_stop(void)
+{
+    if (!seq_isRunning()) return;
+    seq_setRunning(0);
+    voiceControl_noteOff(0xFF);
+    seq_elxarResetAutomation();   /* give automated parameters their normal values back */
+}
+
+int elxar_seq_running(void) { return seq_isRunning(); }
+
+/* The firmware's seq_tick() without its millisecond timer: step on pulse 0, then the flam / shift handling
+ * for this pulse (see seq_tick in sequencer.c, the part for the internal clock). */
+void elxar_seq_pulse(void)
+{
+    if (!seq_isRunning()) return;
+    if (seq_prescaleCounter >= ELXAR_PULSES_PER_STEP) seq_prescaleCounter = 0;
+    if (seq_prescaleCounter == 0) seq_nextStep();
+    if (!seq_isRunning()) return;
+    seq_processFlam(seq_prescaleCounter);
+    seq_prescaleCounter++;
+    if (seq_prescaleCounter >= ELXAR_PULSES_PER_STEP) seq_prescaleCounter = 0;
+}
+
+void elxar_seq_select_pattern(uint8_t pattern) { if (pattern < NUM_PATTERN) seq_setNextPattern(pattern); }
+uint8_t elxar_seq_active_pattern(void) { return seq_activePattern; }
+int elxar_seq_position(uint8_t track)
+{
+    if (track >= NUM_TRACKS) return -1;
+    return (int)(int8_t)seq_getStepIndex(track);
+}
+float elxar_seq_shuffle(void) { extern float seq_shuffle; return seq_shuffle; }
+uint32_t elxar_seq_trigger_count(uint8_t track) { return track < NUM_TRACKS ? g_seqTriggers[track] : 0; }
+
+int elxar_num_mod_targets(void) { return getNumModTargets(); }
+int elxar_mod_target_param(int index) { return (index >= 0 && index < getNumModTargets()) ? (int)modTargets[index].param : 0; }
+int elxar_mod_target_voice(int index) { return (index >= 0 && index < getNumModTargets()) ? (int)voiceFromModTargValue((uint8_t)index) : 0; }
+
+uint64_t elxar_euclid(uint8_t length, uint8_t hits, uint8_t rotation) { return euklid_elxarCompute(length, hits, rotation); }
+
+uint32_t flamIdxToPattern(uint8_t flamIdx);   /* sequencer.c */
+int8_t getShiftValue(uint8_t in);             /* sequencer.c */
+uint32_t elxar_flam_bits(uint8_t flam) { return flamIdxToPattern(flam) & 0xFFFFFFu; }
+int elxar_shift_pulses(uint8_t shift) { return shift > 14 ? 0 : 3 * (int)getShiftValue(shift); }
+int elxar_param_order(int position) { return (position >= 0 && position < END_OF_SOUND_PARAMETERS) ? (int)parameterOrder[position] : 0; }
+uint8_t elxar_init_kit_value(int par) { return (par >= 0 && par + 8 < INIT_KIT_SIZE && par < END_OF_SOUND_PARAMETERS) ? initKit[par + 8] : 0; }

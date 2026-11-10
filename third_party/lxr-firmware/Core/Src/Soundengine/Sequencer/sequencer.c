@@ -489,6 +489,10 @@ static void seq_parseAutomationNodes(uint8_t track, Step* stepData)
 	autoNode_updateValue(&seq_automationNodes[track][1], stepData->param2Val);
 }
 //------------------------------------------------------------------------------
+/* ELXAR-Two change: the step whose data seq_triggerVoice uses. seq_processFlam sets it to the step that is
+ * really playing (a shifted or flammed neighbour step, firmware review S-B3). -1 = use the track position. */
+static int8_t seq_elxarPlayStep = -1;
+
 void seq_triggerVoice(uint8_t voiceNr, uint8_t vol, uint8_t note)
 {
 	uint8_t midiChan; // which midi channel to send a note on
@@ -496,11 +500,16 @@ void seq_triggerVoice(uint8_t voiceNr, uint8_t vol, uint8_t note)
 
 	if(voiceNr > 6) return;
 
+	/* ELXAR-Two change: the track position is -1 while the sequencer is stopped (firmware review S-A2);
+	 * reading step -1 is outside the pattern. Use step 0 then. */
+	int8_t elxarStep = (seq_elxarPlayStep >= 0) ? seq_elxarPlayStep : seq_stepIndex[voiceNr];
+	if(elxarStep < 0 || elxarStep >= NUM_STEPS) elxarStep = 0;
+
 
 #if USE_PATTERN_EDIT_BUFFER
 	seq_parseAutomationNodes(voiceNr, &patternBackupBuffer.seq_subStepPattern[voiceNr][seq_stepIndex[voiceNr]]);
 #else
-	seq_parseAutomationNodes(voiceNr, &seq_patternSet.seq_subStepPattern[seq_activePattern][voiceNr][seq_stepIndex[voiceNr]]);
+	seq_parseAutomationNodes(voiceNr, &seq_patternSet.seq_subStepPattern[seq_activePattern][voiceNr][elxarStep]); /* ELXAR-Two change: was seq_stepIndex[voiceNr] */
 #endif
 
 	//turn the trigger off before sending the next one
@@ -536,7 +545,7 @@ void seq_triggerVoice(uint8_t voiceNr, uint8_t vol, uint8_t note)
 #if USE_PATTERN_EDIT_BUFFER
 	seq_sendMidiNoteOn(midiChan, midiNote, patternBackupBuffer.seq_subStepPattern[voiceNr][seq_stepIndex[voiceNr]].volume&STEP_VOLUME_MASK);
 #else
-	seq_sendMidiNoteOn(midiChan, midiNote, seq_patternSet.seq_subStepPattern[seq_activePattern][voiceNr][seq_stepIndex[voiceNr]].volume&STEP_VOLUME_MASK);
+	seq_sendMidiNoteOn(midiChan, midiNote, seq_patternSet.seq_subStepPattern[seq_activePattern][voiceNr][elxarStep].volume&STEP_VOLUME_MASK); /* ELXAR-Two change: was seq_stepIndex[voiceNr] */
 #endif
 }
 //------------------------------------------------------------------------------
@@ -630,7 +639,9 @@ IN_ITCM_RAM void seq_setPendingPatternActive()
 		}
 		*/
 		//copy current backup to current slot (discarding unsaved changes)
+#ifndef ELXAR_TWO_HOST /* ELXAR-Two change: the plugin has no "save pattern" step; edits stay in the pattern */
 		seq_copyBackupBufferToPattern(seq_activePattern);
+#endif
 		//copy pending pattern to backup buffer
 		seq_copyPatternToBackupBuffer(seq_pendingPattern);
 
@@ -1086,8 +1097,10 @@ uint32_t seq_getShiftFlamPattern(const uint8_t track, uint8_t step, StepPosition
 #endif
 }
 
-uint8_t chokeCurrent=0;
-uint8_t chokeNext=0;
+/* ELXAR-Two change: one pair of flags per track. The firmware shares one pair between all tracks, so an early
+ * (shifted) hit on one track drops the hits of the tracks after it (firmware review S-B4). */
+static uint8_t elxarChokeCurrent[NUM_TRACKS];
+static uint8_t elxarChokeNext[NUM_TRACKS];
 void seq_processFlam(uint8_t idx)
 {
 	if(!seq_running)
@@ -1095,8 +1108,8 @@ void seq_processFlam(uint8_t idx)
 
 	if(idx==0)
 	{
-		chokeCurrent=0;
-		chokeNext=0;
+		memset(elxarChokeCurrent, 0, sizeof(elxarChokeCurrent));
+		memset(elxarChokeNext, 0, sizeof(elxarChokeNext));
 	}
 
 	for(uint8_t track=0;track<NUM_TRACKS;track++)
@@ -1106,7 +1119,16 @@ void seq_processFlam(uint8_t idx)
 		{
 			//pattern takes main step active and probability into account
 #if 1
-			const uint8_t length = seq_patternSet.length[seq_activePattern][track];
+			/* ELXAR-Two change: a stored length of 0 means 16 (firmware review S-B1; "% 0" stops a computer
+			 * program), lengths above 64 are cut, and nothing plays before the first step (review S-A2). */
+			uint8_t length = seq_patternSet.length[seq_activePattern][track];
+			if(length == 0) length = 16;
+			if(length > NUM_STEPS) length = NUM_STEPS;
+			if(seq_stepIndex[track] < 0) continue;
+			uint8_t* const chokeCurrentP = &elxarChokeCurrent[track];
+			uint8_t* const chokeNextP = &elxarChokeNext[track];
+#define chokeCurrent (*chokeCurrentP)
+#define chokeNext (*chokeNextP)
 			const uint8_t currentStep = seq_stepIndex[track];
 			const uint8_t nextStep = (seq_stepIndex[track]+1)%length;
 			const uint8_t prevStep = seq_stepIndex[track] != 0 ? seq_stepIndex[track] - 1 : length-1;
@@ -1131,7 +1153,9 @@ void seq_processFlam(uint8_t idx)
 				chokeNext = 1;
 				const uint8_t vol = seq_patternSet.seq_subStepPattern[seq_activePattern][track][nextStep].volume&STEP_VOLUME_MASK;
 				const uint8_t note = seq_patternSet.seq_subStepPattern[seq_activePattern][track][nextStep].note;
+				seq_elxarPlayStep = nextStep; /* ELXAR-Two change (review S-B3) */
 				seq_triggerVoice(track,vol,note);
+				seq_elxarPlayStep = -1;
 			}
 			else if((currentActive) && (chokeNext == 0))
 			{
@@ -1139,20 +1163,26 @@ void seq_processFlam(uint8_t idx)
 				chokeCurrent = 1;
 				const uint8_t vol = seq_patternSet.seq_subStepPattern[seq_activePattern][track][currentStep].volume&STEP_VOLUME_MASK;
 				const uint8_t note = seq_patternSet.seq_subStepPattern[seq_activePattern][track][currentStep].note;
+				seq_elxarPlayStep = currentStep; /* ELXAR-Two change (review S-B3) */
 				seq_triggerVoice(track,vol,note);
+				seq_elxarPlayStep = -1;
 			}
 			else if((prevActive) && (chokeNext == 0) && (chokeCurrent == 0))
 			{
 				lastWasNoteOn[track] = 1;
 				const uint8_t vol = seq_patternSet.seq_subStepPattern[seq_activePattern][track][prevStep].volume&STEP_VOLUME_MASK;
 				const uint8_t note = seq_patternSet.seq_subStepPattern[seq_activePattern][track][prevStep].note;
+				seq_elxarPlayStep = prevStep; /* ELXAR-Two change (review S-B3) */
 				seq_triggerVoice(track,vol,note);
+				seq_elxarPlayStep = -1;
 			}
 			else if (lastWasNoteOn[track])
 			{
 				lastWasNoteOn[track] = 0;
 				voiceControl_noteOff(track);
 			}
+#undef chokeCurrent
+#undef chokeNext
 #else
 
 			//if main step is active
@@ -2745,6 +2775,33 @@ void seq_sendMidiNoteOn(const uint8_t channel, const uint8_t note, const uint8_t
 uint8_t seq_getStepIndex(uint8_t trackNr)
 {
 	return seq_stepIndex[trackNr];
+}
+//------------------------------------------------------------------------------
+/* ELXAR-Two change (added): put every track at the place that belongs to an absolute step number counted from
+ * the start of the song, so the pattern follows the host's song position. The next seq_nextStep() plays that
+ * step. Each track wraps at its own length. */
+void seq_elxarLocate(uint32_t absoluteStep)
+{
+	for(uint8_t i=0;i<NUM_TRACKS;i++) {
+		uint8_t len = seq_patternSet.length[seq_activePattern][i];
+		if(len == 0) len = 16;
+		if(len > NUM_STEPS) len = NUM_STEPS;
+		seq_lastMasterStep[i] = 0;
+		seq_stepIndex[i] = (int8_t)(absoluteStep % len) - 1;
+	}
+	seq_prescaleCounter = 0;
+	seq_masterStepCnt = (uint8_t)(absoluteStep & 0xff);
+}
+//------------------------------------------------------------------------------
+/* ELXAR-Two change (added): switch every track's per-step automation off. autoNode_setDestination() puts the
+ * automated parameter back to its normal value. The plugin calls this when the sequencer stops, so a sound played
+ * by hand afterwards does not keep the value of the last automated step. */
+void seq_elxarResetAutomation(void)
+{
+	for(uint8_t i=0;i<NUM_TRACKS;i++) {
+		autoNode_setDestination(&seq_automationNodes[i][0], NO_AUTOMATION);
+		autoNode_setDestination(&seq_automationNodes[i][1], NO_AUTOMATION);
+	}
 }
 
 /* This will send a prog change on the global channel and will filter

@@ -49,6 +49,12 @@ static inline uint32_t elxar_f2u(float f) {
 
 /* the hardware random number generator: replaced by src/engine/elxar_random.c */
 typedef struct { int unused; } RNG_HandleTypeDef;
+/* named in front-panel headers that the firmware's sequencer includes; never used */
+typedef struct { int unused; } SPI_HandleTypeDef;
+typedef struct { int unused; } TIM_HandleTypeDef;
+typedef struct { int unused; } UART_HandleTypeDef;
+typedef struct { int unused; } ADC_HandleTypeDef;
+typedef struct { int unused; } GPIO_TypeDef;
 
 #ifndef __STATIC_FORCEINLINE
 #define __STATIC_FORCEINLINE __attribute__((always_inline)) static inline

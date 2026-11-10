@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Configure (universal, macOS 11+)
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DELXAR_BUILD_PLUGIN_TEST=ON
 
       - name: Engine test (headless, renders drum hits to WAV and checks them)
         run: |
@@ -50,6 +50,31 @@ jobs:
         with:
           name: ELXAR-Two-test-renders
           path: test-renders
+
+      - name: Plugin test (the plugin code with a pretend host, transport, saving, MIDI file)
+        run: |
+          cmake --build build --target ELXAR_Two_PluginTest -j4 > plugin_test_log.txt 2>&1 || {
+            grep -E "error|Error" plugin_test_log.txt | head -8 | while IFS= read -r line; do echo "::error::PLUGIN TEST BUILD - $line"; done
+            tail -20 plugin_test_log.txt; exit 1; }
+          TEST_BIN=$(find build -type f -name ELXAR_Two_PluginTest | head -1)
+          [ -n "$TEST_BIN" ] || { echo "::error::PLUGIN TEST program not found after the build"; exit 1; }
+          file "$TEST_BIN"
+          set +e
+          arch -arm64 "$TEST_BIN" > plugin_test_result.txt 2>&1
+          STATUS=$?
+          set -e
+          cat plugin_test_result.txt
+          if [ $STATUS -ne 0 ] || ! grep -q "RESULT - all plugin checks passed" plugin_test_result.txt; then
+            echo "::error::PLUGIN TEST stopped with exit status $STATUS; last line - $(tail -1 plugin_test_result.txt)"
+            grep FAIL plugin_test_result.txt | while IFS= read -r line; do echo "::error::PLUGIN TEST - $line"; done
+            exit 1
+          fi
+          # Intel half through Rosetta when available. Reported, does not stop the build.
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then
+            arch -x86_64 "$TEST_BIN" > plugin_test_result_intel.txt 2>&1 || true
+            tail -2 plugin_test_result_intel.txt
+            grep -q "RESULT - all plugin checks passed" plugin_test_result_intel.txt && echo "::notice::PLUGIN TEST intel (Rosetta) - all checks passed" || echo "::warning::PLUGIN TEST intel (Rosetta) did not pass - $(tail -1 plugin_test_result_intel.txt)"
+          fi
 
       - name: Build AU + VST3
         run: |

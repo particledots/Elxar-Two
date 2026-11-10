@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.2.0 (unreleased): Milestone 2
+- The firmware's own step sequencer (`sequencer.c`) and Euclidean generator (`EuklidGenerator.c`) are compiled into
+  the plugin and play the patterns. The stand-in grid player of Milestone 1 is gone.
+  - Kept from the firmware: which step plays, a length per row (1 to 64 steps), probability, flam, shift, per-step
+    pitch, two per-step automation slots, shuffle, pattern changes at the end of the pattern.
+  - Replaced: the clock. The firmware's millisecond timer is replaced by 24 pulses per step worked out from Logic's
+    song position (`SeqClock`), so the pattern stays locked to Logic, also after a jump or a cycle. Shuffle is timed
+    the way the firmware's clock does it.
+  - Left out (they depend on the hardware's buttons and SD card): song mode, live recording, roll, a kit per pattern,
+    patterns 17 to 64, MIDI out and trigger outputs.
+- Window: a Pattern page (bar buttons, shuffle, copy / paste / clear, the grid with a length per row, a step editor
+  for the selected step, the generator and the MIDI file box) and a Sound page (every sound parameter of each voice,
+  kit slots). The six voice strips and the effect section are always visible.
+- Pattern generator rebuilt on the firmware's Euclidean generator ("Generate beat", "Fill selected row").
+- Drag MIDI out now writes what the sequencer would play: row lengths, flams, shift, shuffle, probability; 1 to 8 bars.
+- Kits: all 247 sound parameters are saved with the Logic project; eight kit slots in the project; Init kit.
+- 16 patterns (were 4), all saved with the project. Projects saved with Milestone 1 still open.
+- Effect section: new "Kind" list (drive type, ring-mod waveform, compressor ratio, delay type).
+- Window size: "Window size" list (75 / 100 / 125 / 150 %) and a drag corner; saved with the project.
+- Decision: still one plugin instance per project. Allowing several needs every instance's copy of the firmware's
+  shared memory to be swapped in and out for each audio block, behind a lock, because Logic renders tracks on
+  several processor cores at once. That is a change to the foundation which cannot be checked without Logic, so it
+  is not mixed into this milestone.
+- Firmware changes (all marked, listed in `third_party/lxr-firmware/ELXAR-CHANGES.md`): pattern edits are kept when
+  the pattern changes; three sequencer faults from the firmware review fixed (automation taken from the wrong step,
+  one track's shifted hit dropping other tracks' hits, reading step -1 / dividing by a length of 0); added functions
+  to follow the host position, to end automation on stop, and to get a Euclidean pattern back as a value.
+- Finding: the firmware's Euclidean generator never finishes, or gives the wrong number of hits, for lengths from 18
+  (its menu only allows 1 to 16). The plugin limits it to 16.
+- New plugin test (`tools/plugin_test`): runs the real plugin code with a pretend host and checks transport
+  following (hits land 1 to 2 ms after the grid line, the same small delay as in Milestone 1), a start in the middle
+  of a bar, a jump back to bar 1, row lengths, pattern change, "Always" mode, keys, Mute, kits, saving and loading
+  (including a Milestone 1 project), the MIDI file and the generator. Runs on GitHub with every build.
+- Engine test: new sequencer checks (step timing, row length, song position, flam, shift, probability, pattern
+  change, per-step automation, Euclid for all lengths 1 to 16), a sequenced beat rendered through the same clock code
+  the plugin uses, and the random stress test now also drives the sequencer.
+
 ## 0.1.0 (unreleased): Milestone 1
 - The LXR-02 sound engine now runs in the plugin. The firmware's sound code is compiled with small stand-ins for
   the STM32 hardware (`src/engine/shim`) and a plain-C front door (`src/engine/elxar_engine.c`).

@@ -302,6 +302,11 @@ void seq_sendMidiNoteOn(const uint8_t channel, const uint8_t note, const uint8_t
 uint8_t seq_getStepIndex(uint8_t trackNr);
 //------------------------------------------------------------------------------
 PatternSet* get_seq_patternSet_p(void);
+//------------------------------------------------------------------------------
+/* ELXAR-Two change (added): follow the host's song position, see sequencer.c */
+void seq_elxarLocate(uint32_t absoluteStep);
+/* ELXAR-Two change (added): end all per-step automation, see sequencer.c */
+void seq_elxarResetAutomation(void);
 uint8_t seq_getActiveAutomationTrack(void);
 
 #endif /* SEQUENCER_H_ */
