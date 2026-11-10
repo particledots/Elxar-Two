@@ -30,3 +30,4 @@ audio-chip and trigger files are in the folder but are not compiled.
 | `DSPAudio/Snare.c` | Output clips instead of wrapping around (2 places) | Fix from OpenElixir-02 |
 | `DSPAudio/Decay.c` | Pitch-envelope slope 127 no longer divides by zero | It silenced the oscillator (fix from OpenElixir-02) |
 | `DSPAudio/modulationNode.c` | Skips a modulation destination that has no parameter | Reading address 0 crashes on a computer (found by LXRXXL) |
+| `DSPAudio/FX/Reverb.c` | With a mono output routing the reverb writes one channel only | It always wrote a stereo pair and ran one sample past the output buffer (found by the ELXAR-Two engine test on Apple silicon) |

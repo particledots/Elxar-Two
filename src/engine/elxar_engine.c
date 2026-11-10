@@ -269,7 +269,8 @@ void elxar_silence_fx(void)
 
 void elxar_render_block(float* outL, float* outR)
 {
-    int16_t out1[ELXAR_BLOCK * 2], out2[ELXAR_BLOCK * 2];
+    /* a little spare room after each buffer: the firmware was written for buffers that sit next to each other in memory */
+    int16_t out1[ELXAR_BLOCK * 2 + 16], out2[ELXAR_BLOCK * 2 + 16];
     int i;
     systick_ticks++;
     mixer_calcNextSampleBlock(out1, out2);

@@ -445,7 +445,16 @@ void Reverb_process(Reverb *r, int16_t *fxBuffer,int16_t* outL, int16_t* outR, u
 
 			x = __PKHBT(fxBuffer[idx1] + __SSAT((wet - fxBuffer[idx1]) * dryWet,16), fxBuffer[idx2] + __SSAT((wet - fxBuffer[idx2]) * dryWet,16), 16);
 			//LERP dryWet
-			*stereoOut = __QADD16(*stereoOut, x);
+			/* ELXAR-Two change: with a mono output routing write one channel only, as the delay does. The original
+			 * always wrote a stereo pair, which ran one sample past the output buffer for the right-only routings. */
+			if (channels == 2)
+			{
+				*stereoOut = __QADD16(*stereoOut, x);
+			}
+			else
+			{
+				*(uint16_t*)stereoOut = __QADD16(*(uint16_t*)stereoOut, x);
+			}
 			stereoOut++;
 	}
 }
