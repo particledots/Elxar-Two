@@ -16,7 +16,26 @@ ELXAR-Two third-party components
      the stock firmware (ping-pong delay, distortion table, pitch envelope slope, snare and compressor clipping).
    - particledots/beads-plugin: the sample-rate converter (src/Resampler.h) that src/engine/ElxarEngine.h adapts.
 
-3. JUCE 8.0.6 (https://juce.com), downloaded at build time. Used under the AGPL-3.0 option of the JUCE licence.
+3. JUCE 8.0.6 (https://juce.com), downloaded at build time. JUCE is offered under the GNU AGPL version 3 or a paid
+   JUCE licence; ELXAR-Two uses the AGPL-3.0 option (checked against JUCE's LICENSE.md at tag 8.0.6). GPL-3.0 and
+   AGPL-3.0 code may be combined in one program (section 13 of both licences).
+   Parts that JUCE brings along and that are, or may be, inside the plugin:
+   - AudioUnitSDK, Apple Inc.: Apache License 2.0
+   - VST3 SDK, Steinberg Media Technologies GmbH: used under its GPL-3.0 option
+   - zlib and pnglib: zlib licence; jpeglib: Independent JPEG Group licence; FLAC and Ogg Vorbis: BSD;
+     HarfBuzz: Old MIT; SheenBidi: Apache License 2.0
+   The licence text of each is in the JUCE source: https://github.com/juce-framework/JUCE/tree/8.0.6
+
+4. Licence check for version 1.0.0 (Nov 10, 2026). Not legal advice.
+   - Every part above allows free use, changing and sharing; none needs a paid licence.
+   - Firmware extra term "trademarks": the plugin's name does not use "LXR" or "Erica Synths", and the window and
+     the README say it is unofficial and not affiliated.
+   - Firmware extra term "modified versions must be marked": done (see 1).
+   - The window is an original design; nothing of the hardware's panel or artwork is used.
+   - Using the plugin yourself needs nothing more. Whoever passes a build on must pass on LICENSE, this file and
+     the notices with it and offer the complete source. SOURCE.txt in the download names the exact commit.
+   VST is a registered trademark of Steinberg Media Technologies GmbH. Audio Units, Logic Pro and macOS are
+   trademarks of Apple Inc.
 
 ELXAR-Two itself is released under GPL-3.0 (see LICENSE). The complete source for any binary is in this repository:
 https://github.com/particledots/Elxar-Two

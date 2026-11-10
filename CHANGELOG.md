@@ -1,6 +1,30 @@
 # Changelog
 
-## 0.2.0 (unreleased): Milestone 2
+## 1.0.0: Milestone 3 (looks and release)
+- The window has its final look (`src/ElxarLook.h`): a dark panel with one colour per voice. Drum 1 coral, Drum 2
+  orange, Drum 3 yellow, Snare green, Hi-hat cyan, Cymbal violet. The colour is on the voice's strip (top bar, name,
+  faders, Solo, To FX, Hit), on its grid row (lit steps, the dot before the name, the row length number) and on its
+  Sound page. Everything that belongs to no single voice (effect, master, generator, Bar buttons) is white-grey.
+  An original design, not a copy of the hardware panel.
+- Faders, buttons, list boxes and the two page tabs are drawn in the new look. The Pan fader's coloured part starts
+  in the middle. The layout is the same as in 0.2.0; no control was moved to another place, added or removed.
+- A voice strip is dimmed while its voice is silent (muted, or another voice is soloed). Mute lights up white.
+- Step grid: the step that is playing lights up (it had a blue frame before); the selected step has a white frame.
+  The step editor and the Euclid box take the colour of the selected row. Rows are a little taller.
+- The window is 20 points taller at 100 % (1100 x 820). Saved window sizes are kept as a percentage.
+- The title shows "ELXAR-Two" and the version; "(Milestone 2, rough interface)" is gone.
+- Plugin test: new check that the window opens, draws itself at 100 % and 75 % and closes, twice.
+- Download: now also contains `README.md`, `CHANGELOG.md` and `SOURCE.txt` (the address of the source and the exact
+  commit the build was made from).
+- Licence check done, including JUCE (see the README's Licence section and `THIRD-PARTY-LICENSES.txt`). Result:
+  GPL-3.0 for the plugin, JUCE under its AGPL-3.0 option, nothing that needs a paid licence, nothing that stops
+  personal use or sharing with source.
+- Decisions (Bryn, Nov 10, 2026): one plugin instance per Logic project stays for good; the uninstall script stays;
+  the plugin is for personal use (not published as a release); faders stay (no knobs).
+- No change to the sound engine, the sequencer, the saved project format or the firmware files.
+- Result: not tested in Logic yet.
+
+## 0.2.0: Milestone 2
 - The firmware's own step sequencer (`sequencer.c`) and Euclidean generator (`EuklidGenerator.c`) are compiled into
   the plugin and play the patterns. The stand-in grid player of Milestone 1 is gone.
   - Kept from the firmware: which step plays, a length per row (1 to 64 steps), probability, flam, shift, per-step
@@ -47,7 +71,7 @@
   build's sound: passed. Not confirmed: looping with Logic's Cycle switched on (the tester was unsure where Cycle is;
   jumping between bars was tested). Milestone 2 is complete.
 
-## 0.1.0 (unreleased): Milestone 1
+## 0.1.0: Milestone 1
 - The LXR-02 sound engine now runs in the plugin. The firmware's sound code is compiled with small stand-ins for
   the STM32 hardware (`src/engine/shim`) and a plain-C front door (`src/engine/elxar_engine.c`).
 - The firmware source is now modified (marked `ELXAR-Two change`, listed in
@@ -74,7 +98,7 @@
   stays silent. No clicks, crackles or level problems reported. Milestone 1 is complete.
 - Requested for later: an option to resize the window.
 
-## 0.0.1 (unreleased): Milestone 0
+## 0.0.1: Milestone 0
 - Imported the Erica Synths LXR-02 firmware source (unmodified, commit a43cd4f) into `third_party/lxr-firmware`.
 - Empty AU instrument and VST3 shell (JUCE 8.0.6), stereo output, placeholder tone on MIDI notes.
 - GitHub Actions build (universal, ad-hoc signed), install and uninstall scripts.

@@ -95,7 +95,15 @@ jobs:
           mkdir -p dist
           cp -R build/ELXAR_Two_artefacts/Release/AU/*.component dist/
           cp -R build/ELXAR_Two_artefacts/Release/VST3/*.vst3 dist/
-          cp THIRD-PARTY-LICENSES.txt LICENSE dist/
+          cp THIRD-PARTY-LICENSES.txt LICENSE README.md CHANGELOG.md dist/
+          # Where the source of this exact build is (GPL: a build must come with its source).
+          printf 'ELXAR-Two source code\n\nThis build was made from commit\n  %s\nof the public repository\n  https://github.com/%s\n\nThe complete source of this build, including the modified LXR firmware and the build script:\n  https://github.com/%s/tree/%s\n\nLicence: GNU GPL version 3, see LICENSE and THIRD-PARTY-LICENSES.txt.\n' "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$GITHUB_REPOSITORY" "$GITHUB_SHA" > dist/SOURCE.txt
+          cat dist/SOURCE.txt
+          # The version inside the plugin must be the one in CMakeLists.txt.
+          WANT=$(sed -n 's/^project(ELXAR_Two VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          GOT=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" dist/ELXAR-Two.component/Contents/Info.plist)
+          echo "version wanted $WANT, in the plugin $GOT"
+          [ "$WANT" = "$GOT" ] || { echo "::error::PACKAGE version in the plugin is $GOT, expected $WANT"; exit 1; }
           cp third_party/lxr-firmware/NOTICE.md dist/NOTICE-LXR-firmware.md
           cp third_party/lxr-firmware/ELXAR-CHANGES.md dist/CHANGES-to-LXR-firmware.md
           # Both slices present, and the minimum macOS version baked into each (should say 11.0):
@@ -117,6 +125,9 @@ jobs:
             xattr -dr com.apple.quarantine <the unzipped folder>
           TXT
           [ -x dist/Install-ELXAR-Two.command ] || { echo "::error::PACKAGE missing Install-ELXAR-Two.command"; exit 1; }
+          [ -x dist/Uninstall-ELXAR-Two.command ] || { echo "::error::PACKAGE missing Uninstall-ELXAR-Two.command"; exit 1; }
+          for f in LICENSE THIRD-PARTY-LICENSES.txt NOTICE-LXR-firmware.md CHANGES-to-LXR-firmware.md SOURCE.txt README.md; do [ -s "dist/$f" ] || { echo "::error::PACKAGE missing $f"; exit 1; }; done
+          ls -la dist
           ditto -c -k --keepParent dist ELXAR-Two-macOS.zip
 
       - uses: actions/upload-artifact@v4

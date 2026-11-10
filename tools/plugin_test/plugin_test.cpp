@@ -2,6 +2,7 @@
 // supplies tempo and song position. Checks the things that the headless engine_test cannot: that the plugin
 // follows the host transport, that patterns and kits survive saving and loading, and that the MIDI file is right.
 // Not part of the download. Build with -DELXAR_BUILD_PLUGIN_TEST=ON (see CMakeLists.txt).
+#include <set>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <atomic>
 #include <cmath>
@@ -99,7 +100,7 @@ void setOnly (ELXARTwoProcessor& p, int pattern, int row, std::initializer_list<
 }
 }
 
-int main()
+int main (int argc, char** argv)
 {
     std::setvbuf (stdout, nullptr, _IONBF, 0);
     juce::ScopedJuceInitialiser_GUI juceInit;
@@ -364,6 +365,42 @@ int main()
             host.playing = false; host.bpm = 120.0;
         }
         q2.reset(); q.reset();
+    }
+
+    // ---------------------------------------------------------------- the window (Milestone 3: the styled look)
+    // Opens the plugin window twice without showing it, draws it into a picture at two sizes and closes it again.
+    // Catches a crash in the drawing code or in the look's clean-up. With a folder as the first argument, the
+    // picture is also saved there as window.png.
+    {
+        FakeHost host;
+        auto p = makeProcessor (host, rate, block);
+        bool opened = true, drawn = true;
+        int colours = 0;
+        for (int round = 0; round < 2; ++round)
+        {
+            std::unique_ptr<juce::AudioProcessorEditor> window (p->createEditor());
+            if (window == nullptr) { opened = false; break; }
+            for (const float scale : { 1.0f, 0.75f })
+            {
+                window->setSize (juce::roundToInt (1100.0f * scale), juce::roundToInt (820.0f * scale));
+                const juce::Image picture = window->createComponentSnapshot (window->getLocalBounds());
+                std::set<juce::uint32> seen;
+                for (int y = 2; y < picture.getHeight(); y += 7)
+                    for (int x = 2; x < picture.getWidth(); x += 7)
+                        seen.insert (picture.getPixelAt (x, y).getARGB());
+                if (scale == 1.0f) colours = (int) seen.size();
+                if (seen.size() < 20) drawn = false;
+                if (round == 0 && scale == 1.0f && argc > 1)
+                {
+                    juce::File out = juce::File::getCurrentWorkingDirectory().getChildFile (argv[1]).getChildFile ("window.png");
+                    out.deleteFile();
+                    juce::FileOutputStream stream (out);
+                    if (stream.openedOk()) juce::PNGImageFormat().writeImageToStream (picture, stream);
+                }
+            }
+        }
+        check (opened, "the plugin window opens and closes twice");
+        check (drawn, "the plugin window draws itself at 100 % and 75 % (" + juce::String (colours) + " different colours)");
     }
 
     std::printf (failures ? "RESULT - %d FAILED\n" : "RESULT - all plugin checks passed\n", failures);

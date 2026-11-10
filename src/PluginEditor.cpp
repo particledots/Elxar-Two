@@ -6,8 +6,9 @@ extern "C" {
 
 namespace
 {
-const juce::Colour kBackground (0xff15171a), kPanel (0xff1f2327), kLine (0xff3a3f45), kText (0xffd7dade), kDim (0xff9aa0a6),
-                   kAccent (0xffe0a030), kStepOff (0xff2b3036), kStepBeat (0xff353b42), kPlay (0xff6fb7ff);
+using namespace elxarlook;   // the palette and the voice colours (src/ElxarLook.h)
+
+juce::Colour rowColour (int row) { return voiceColour (ELXARTwoProcessor::kRowToStrip[(size_t) juce::jlimit (0, ELXARTwoProcessor::kNumRows - 1, row)]); }
 
 void styleCaption (juce::Label& l, const juce::String& text, float size = 13.0f, bool bold = false)
 {
@@ -22,18 +23,19 @@ void styleCaption (juce::Label& l, const juce::String& text, float size = 13.0f,
 void styleToggle (juce::TextButton& b, juce::Colour onColour)
 {
     b.setClickingTogglesState (true);
-    b.setColour (juce::TextButton::buttonColourId, kStepOff);
+    b.setColour (juce::TextButton::buttonColourId, kRaised);
     b.setColour (juce::TextButton::buttonOnColourId, onColour);
     b.setColour (juce::TextButton::textColourOffId, kText);
-    b.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
+    b.setColour (juce::TextButton::textColourOnId, kOnText);
 }
 
-void styleSlider (juce::Slider& s, int textBoxWidth = 40)
+void styleSlider (juce::Slider& s, int textBoxWidth = 40, juce::Colour accent = kNeutral)
 {
     s.setSliderStyle (juce::Slider::LinearHorizontal);
     s.setTextBoxStyle (juce::Slider::TextBoxRight, false, textBoxWidth, 18);
-    s.setColour (juce::Slider::thumbColourId, kAccent);
+    s.setColour (juce::Slider::thumbColourId, accent);
     s.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    s.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
     s.setColour (juce::Slider::textBoxTextColourId, kDim);
 }
 
@@ -69,9 +71,11 @@ void selectTarget (juce::ComboBox& box, int storedIndex)
 VoiceStrip::VoiceStrip (ELXARTwoProcessor& p, int stripIndex) : proc (p), strip (stripIndex)
 {
     const juce::String prefix = "v" + juce::String (strip + 1) + "_";
-    styleToggle (mute, juce::Colour (0xffd9534f));
-    styleToggle (solo, juce::Colour (0xfff0d040));
-    styleToggle (toFx, juce::Colour (0xff6fb7ff));
+    const juce::Colour colour = voiceColour (strip);
+    styleToggle (mute, kNeutral);     // Mute lights up white and dims the strip
+    styleToggle (solo, colour);
+    styleToggle (toFx, colour);
+    hit.setColour (juce::TextButton::textColourOffId, colour);
     mute.setTooltip ("Silence this sound");
     solo.setTooltip ("Hear only the soloed sounds");
     toFx.setTooltip ("Send this whole sound through the effect");
@@ -95,13 +99,16 @@ VoiceStrip::VoiceStrip (ELXARTwoProcessor& p, int stripIndex) : proc (p), strip 
     {
         auto* s = sliders.add (new juce::Slider (juce::Slider::LinearVertical, juce::Slider::TextBoxBelow));
         s->setTextBoxStyle (juce::Slider::TextBoxBelow, false, 34, 16);
-        s->setColour (juce::Slider::thumbColourId, kAccent);
+        s->setColour (juce::Slider::thumbColourId, colour);
         s->setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+        s->setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
         s->setColour (juce::Slider::textBoxTextColourId, kDim);
+        if (juce::String (d.name) == "Pan") s->getProperties().set (fromCentreId(), true);   // coloured part starts in the middle
         addAndMakeVisible (*s);
         sliderAttachments.add (new SliderAttachment (proc.apvts, d.id, *s));
         auto* l = labels.add (new juce::Label());
         styleCaption (*l, d.name, 11.0f);
+        l->setColour (juce::Label::textColourId, kDim);
         l->setJustificationType (juce::Justification::centred);
         l->setMinimumHorizontalScale (0.5f);
         l->setBorderSize (juce::BorderSize<int> (0));
@@ -111,19 +118,38 @@ VoiceStrip::VoiceStrip (ELXARTwoProcessor& p, int stripIndex) : proc (p), strip 
 
 void VoiceStrip::paint (juce::Graphics& g)
 {
+    const auto bounds = getLocalBounds().toFloat();
+    const juce::Colour colour = voiceColour (strip).withMultipliedAlpha (audible ? 1.0f : 0.35f);
     g.setColour (kPanel);
-    g.fillRoundedRectangle (getLocalBounds().toFloat(), 5.0f);
+    g.fillRoundedRectangle (bounds, 6.0f);
+    {   // a bar in the voice's colour along the top edge
+        juce::Graphics::ScopedSaveState save (g);
+        juce::Path outline;
+        outline.addRoundedRectangle (bounds, 6.0f);
+        g.reduceClipRegion (outline);
+        g.setColour (colour);
+        g.fillRect (bounds.withHeight (4.0f));
+    }
     g.setColour (kLine);
-    g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (0.5f), 5.0f, 1.0f);
-    g.setColour (juce::Colours::white);
+    g.drawRoundedRectangle (bounds.reduced (0.5f), 6.0f, 1.0f);
+    g.setColour (colour);
     g.setFont (juce::FontOptions (14.0f, juce::Font::bold));
-    g.drawText (ELXARTwoProcessor::kStripNames[(size_t) strip], getLocalBounds().removeFromTop (24), juce::Justification::centred);
+    g.drawText (juce::String (ELXARTwoProcessor::kStripNames[(size_t) strip]).toUpperCase(), getLocalBounds().withTrimmedTop (5).removeFromTop (20), juce::Justification::centred);
+}
+
+void VoiceStrip::setAudible (bool shouldBeAudible)
+{
+    if (audible == shouldBeAudible) return;
+    audible = shouldBeAudible;
+    for (auto* s : sliders) s->setAlpha (audible ? 1.0f : 0.4f);
+    for (auto* l : labels) l->setAlpha (audible ? 1.0f : 0.4f);
+    repaint();
 }
 
 void VoiceStrip::resized()
 {
     auto area = getLocalBounds().reduced (5);
-    area.removeFromTop (20);
+    area.removeFromTop (22);
     auto buttons = area.removeFromTop (22);
     const int bw = buttons.getWidth() / 4;
     mute.setBounds (buttons.removeFromLeft (bw).reduced (1));
@@ -196,14 +222,17 @@ void StepGrid::paint (juce::Graphics& g)
     for (int row = 0; row < ELXARTwoProcessor::kNumRows; ++row)
     {
         const auto rb = rowBounds (row);
+        const juce::Colour colour = rowColour (row);
         if (row == selectedRow)
         {
-            g.setColour (kPanel.brighter (0.15f));
-            g.fillRoundedRectangle (rb.withWidth (kLabelWidth - 4).reduced (0, 1).toFloat(), 3.0f);
+            g.setColour (kRaised);
+            g.fillRoundedRectangle (rb.withWidth (kLabelWidth - 4).reduced (0, 1).toFloat(), 4.0f);
         }
+        g.setColour (colour);   // a dot in the voice's colour, then the row's name
+        g.fillEllipse (6.0f, (float) rb.getCentreY() - 3.5f, 7.0f, 7.0f);
         g.setColour (row == selectedRow ? juce::Colours::white : kText);
         g.setFont (juce::FontOptions (12.0f, row == selectedRow ? juce::Font::bold : juce::Font::plain));
-        g.drawText (ELXARTwoProcessor::kRowNames[(size_t) row], 0, rb.getY(), kLabelWidth - 8, rb.getHeight(), juce::Justification::centredRight);
+        g.drawText (ELXARTwoProcessor::kRowNames[(size_t) row], 18, rb.getY(), kLabelWidth - 26, rb.getHeight(), juce::Justification::centredLeft);
 
         const int length = proc.getTrackLength (pattern, row);
         for (int column = 0; column < ELXARTwoProcessor::kStepsPerBar; ++column)
@@ -212,8 +241,10 @@ void StepGrid::paint (juce::Graphics& g)
             const auto c = cellBounds (row, column).reduced (2).toFloat();
             const ElxarStep s = proc.getStep (pattern, row, step);
             const bool inside = step < length;
-            juce::Colour fill = s.on ? kAccent.withMultipliedBrightness (0.45f + 0.55f * (float) s.velocity / 127.0f)
+            const bool playingHere = isPlayingPattern && step == shownPosition[(size_t) row];
+            juce::Colour fill = s.on ? colour.withMultipliedBrightness (0.45f + 0.55f * (float) s.velocity / 127.0f)
                                      : ((column % 4) == 0 ? kStepBeat : kStepOff);
+            if (playingHere) fill = fill.interpolatedWith (juce::Colours::white, s.on ? 0.55f : 0.30f);   // the step being played lights up
             if (! inside) fill = fill.withMultipliedAlpha (0.25f);   // after the end of this row: not played
             g.setColour (fill);
             g.fillRoundedRectangle (c, 3.0f);
@@ -228,20 +259,15 @@ void StepGrid::paint (juce::Graphics& g)
                 if (s.autoTarget[0] != 0 || s.autoTarget[1] != 0) marks << "A";
                 if (marks.isNotEmpty())
                 {
-                    g.setColour (juce::Colours::black);
+                    g.setColour (kOnText);
                     g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
                     g.drawText (marks, c.toNearestInt(), juce::Justification::centred);
                 }
             }
-            if (isPlayingPattern && step == shownPosition[(size_t) row])
-            {
-                g.setColour (kPlay);
-                g.drawRoundedRectangle (c, 3.0f, 2.0f);
-            }
-            if (row == selectedRow && step == selectedStep)
+            if (row == selectedRow && step == selectedStep)   // the selected step: a white frame
             {
                 g.setColour (juce::Colours::white);
-                g.drawRoundedRectangle (c.reduced (1.0f), 3.0f, 1.2f);
+                g.drawRoundedRectangle (c.expanded (0.5f), 3.5f, 1.6f);
             }
         }
     }
@@ -281,11 +307,17 @@ void StepGrid::mouseDrag (const juce::MouseEvent& e)   // drag across squares to
 // ================================================================ DragMidiBox
 void DragMidiBox::paint (juce::Graphics& g)
 {
-    g.setColour (juce::Colour (0xff2d4a66));
-    g.fillRoundedRectangle (getLocalBounds().toFloat(), 5.0f);
-    g.setColour (kPlay);
-    g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (1.0f), 5.0f, 1.5f);
-    g.setColour (juce::Colours::white);
+    const auto bounds = getLocalBounds().toFloat().reduced (1.0f);
+    g.setColour (kRaised);
+    g.fillRoundedRectangle (bounds, 5.0f);
+    juce::Path frame;
+    frame.addRoundedRectangle (bounds, 5.0f);
+    juce::Path dashes;
+    const float dashLengths[] = { 5.0f, 4.0f };
+    juce::PathStrokeType (1.4f).createDashedStroke (dashes, frame, dashLengths, 2);
+    g.setColour (kNeutral);
+    g.fillPath (dashes);
+    g.setColour (kText);
     g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
     g.drawFittedText ("DRAG MIDI OUT\ndrag this onto a Logic track", getLocalBounds().reduced (4), juce::Justification::centred, 2);
 }
@@ -338,7 +370,7 @@ PatternPage::PatternPage (ELXARTwoProcessor& p) : proc (p), grid (p), dragBox (p
     {
         auto& b = barButtons[(size_t) i];
         b.setButtonText (juce::String (i + 1));
-        styleToggle (b, kAccent);
+        styleToggle (b, kNeutral);
         b.setRadioGroupId (101);
         b.setTooltip ("Show steps " + juce::String (i * 16 + 1) + " to " + juce::String (i * 16 + 16) + " of each row");
         b.onClick = [this, i] { if (barButtons[(size_t) i].getToggleState()) { grid.setBar (i); refreshStepEditor(); } };
@@ -370,7 +402,8 @@ PatternPage::PatternPage (ELXARTwoProcessor& p) : proc (p), grid (p), dragBox (p
         s.setSliderStyle (juce::Slider::IncDecButtons);
         s.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 36, 18);
         s.setColour (juce::Slider::textBoxOutlineColourId, kLine);
-        s.setColour (juce::Slider::textBoxTextColourId, kText);
+        s.setColour (juce::Slider::textBoxBackgroundColourId, kWell);
+        s.setColour (juce::Slider::textBoxTextColourId, rowColour (row));
         s.setRange (1.0, (double) ELXARTwoProcessor::kNumSteps, 1.0);
         s.setTooltip ("How many steps this row plays before it starts again (1 to 64). Rows can have different lengths.");
         s.onValueChange = [this, row] { if (! updating) { proc.setTrackLength (proc.getCurrentPattern(), row, (int) lengthSliders[(size_t) row].getValue()); grid.repaint(); } };
@@ -407,6 +440,7 @@ PatternPage::PatternPage (ELXARTwoProcessor& p) : proc (p), grid (p), dragBox (p
 
     // ---- generator ----
     styleCaption (genCaption, "BEAT GENERATOR (whole pattern)", 12.0f, true);
+    genCaption.setColour (juce::Label::textColourId, kDim);
     addAndMakeVisible (genCaption);
     styleSlider (density); styleSlider (variation); styleSlider (kickHits);
     for (auto* s : { &density, &variation, &kickHits }) addAndMakeVisible (*s);
@@ -426,6 +460,7 @@ PatternPage::PatternPage (ELXARTwoProcessor& p) : proc (p), grid (p), dragBox (p
     addAndMakeVisible (generate);
 
     styleCaption (euclidCaption, "EUCLID (one row)", 12.0f, true);
+    euclidCaption.setColour (juce::Label::textColourId, kDim);
     addAndMakeVisible (euclidCaption);
     setUpSmallSlider (eLen, eLenLabel, "Length", 1.0, 16.0, 16.0);
     setUpSmallSlider (eHits, eHitsLabel, "Hits", 0.0, 16.0, 4.0);
@@ -440,6 +475,7 @@ PatternPage::PatternPage (ELXARTwoProcessor& p) : proc (p), grid (p), dragBox (p
 
     // ---- MIDI file ----
     styleCaption (midiCaption, "MIDI FILE", 12.0f, true);
+    midiCaption.setColour (juce::Label::textColourId, kDim);
     addAndMakeVisible (midiCaption);
     styleCaption (barsLabel, "Bars", 12.0f);
     addAndMakeVisible (barsLabel);
@@ -467,7 +503,7 @@ PatternPage::PatternPage (ELXARTwoProcessor& p) : proc (p), grid (p), dragBox (p
     refresh();
 }
 
-void PatternPage::paint (juce::Graphics& g) { g.fillAll (kBackground); }
+void PatternPage::paint (juce::Graphics& g) { g.fillAll (kPanel); }
 
 void PatternPage::refresh()
 {
@@ -493,6 +529,7 @@ void PatternPage::refreshStepEditor()
 {
     const int row = grid.getSelectedRow(), step = grid.getSelectedStep();
     const ElxarStep s = proc.getStep (proc.getCurrentPattern(), row, step);
+    colourStepEditor (row);
     updating = true;
     stepCaption.setText (juce::String ("Selected step: ") + ELXARTwoProcessor::kRowNames[(size_t) row] + ", step " + juce::String (step + 1) + (s.on ? "" : " (off)"),
                          juce::dontSendNotification);
@@ -508,6 +545,17 @@ void PatternPage::refreshStepEditor()
     auto1Value.setEnabled (s.autoTarget[0] != 0);
     auto2Value.setEnabled (s.autoTarget[1] != 0);
     updating = false;
+}
+
+// The step editor and the "Fill selected row" box take the colour of the row they work on.
+void PatternPage::colourStepEditor (int row)
+{
+    if (row == colouredRow) return;
+    colouredRow = row;
+    const juce::Colour colour = rowColour (row);
+    stepCaption.setColour (juce::Label::textColourId, colour);
+    for (auto* s : { &velocity, &probability, &note, &auto1Value, &auto2Value, &eLen, &eHits, &eRot })
+        s->setColour (juce::Slider::thumbColourId, colour);
 }
 
 void PatternPage::writeStepFromEditor()
@@ -555,7 +603,7 @@ void PatternPage::resized()
     area.removeFromTop (4);
 
     // grid with one length box per row at the right
-    const int gridRow = 25;
+    const int gridRow = 27;
     auto gridArea = area.removeFromTop (ELXARTwoProcessor::kNumRows * gridRow);
     auto lengths = gridArea.removeFromRight (lengthColumn);
     gridArea.removeFromRight (8);
@@ -582,7 +630,7 @@ void PatternPage::resized()
 
     // generator | euclid for one row | MIDI file
     auto bottom = area.removeFromTop (18 + 3 * 24);
-    auto gen = bottom.removeFromLeft (350);
+    auto gen = bottom.removeFromLeft (330);
     genCaption.setBounds (gen.removeFromTop (18));
     auto row3 = [] (juce::Rectangle<int>& from, juce::Label& l, int labelWidth, juce::Slider& s)
     {
@@ -594,7 +642,7 @@ void PatternPage::resized()
     row3 (gen, variationLabel, 120, variation);
     row3 (gen, kickLabel, 120, kickHits);
     bottom.removeFromLeft (8);
-    auto genButton = bottom.removeFromLeft (120);
+    auto genButton = bottom.removeFromLeft (112);
     genButton.removeFromTop (18);
     generate.setBounds (genButton.removeFromTop (48).reduced (0, 4));
     bottom.removeFromLeft (20);
@@ -616,14 +664,14 @@ void PatternPage::resized()
     dragStatus.setBounds (midiTop);
     auto midiLine = midi.removeFromTop (24);
     barsLabel.setBounds (midiLine.removeFromLeft (34));
-    midiBars.setBounds (midiLine.removeFromLeft (70).reduced (0, 1));
+    midiBars.setBounds (midiLine.removeFromLeft (64).reduced (0, 1));
     midiLine.removeFromLeft (8);
     revealMidi.setBounds (midiLine.reduced (0, 1));
     dragBox.setBounds (midi.reduced (0, 2));
 }
 
 // ================================================================ KitControl
-KitControl::KitControl (ELXARTwoProcessor& p, const elxar::ParamInfo& i, int engineVoice) : proc (p), info (i)
+KitControl::KitControl (ELXARTwoProcessor& p, const elxar::ParamInfo& i, int engineVoice, juce::Colour accent) : proc (p), info (i)
 {
     styleCaption (label, info.name, 12.0f);
     addAndMakeVisible (label);
@@ -631,7 +679,7 @@ KitControl::KitControl (ELXARTwoProcessor& p, const elxar::ParamInfo& i, int eng
     if (info.kind == K::value)
     {
         slider = std::make_unique<juce::Slider>();
-        styleSlider (*slider, 30);
+        styleSlider (*slider, 30, accent);
         slider->setRange (0.0, 127.0, 1.0);
         slider->onValueChange = [this] { if (! updating) proc.setKitParam (info.par, (int) slider->getValue()); };
         addAndMakeVisible (*slider);
@@ -639,6 +687,7 @@ KitControl::KitControl (ELXARTwoProcessor& p, const elxar::ParamInfo& i, int eng
     else if (info.kind == K::onOff)
     {
         toggle = std::make_unique<juce::ToggleButton> ("on");
+        toggle->setColour (juce::ToggleButton::tickColourId, accent);
         toggle->onClick = [this] { if (! updating) proc.setKitParam (info.par, toggle->getToggleState() ? 1 : 0); };
         addAndMakeVisible (*toggle);
     }
@@ -692,7 +741,7 @@ SoundPage::SoundPage (ELXARTwoProcessor& p) : proc (p)
     {
         auto& b = voiceButtons[(size_t) s];
         b.setButtonText (ELXARTwoProcessor::kStripNames[(size_t) s]);
-        styleToggle (b, kAccent);
+        styleToggle (b, voiceColour (s));
         b.setRadioGroupId (202);
         b.onClick = [this, s] { if (voiceButtons[(size_t) s].getToggleState()) showVoice (s); };
         addAndMakeVisible (b);
@@ -745,7 +794,7 @@ void SoundPage::showVoice (int stripIndex)
     controls.clear();
     const int voice = ELXARTwoProcessor::kStripToVoice[(size_t) stripIndex];
     for (const auto& info : elxar::voiceParams (voice))
-        addAndMakeVisible (controls.add (new KitControl (proc, info, voice)));
+        addAndMakeVisible (controls.add (new KitControl (proc, info, voice, voiceColour (stripIndex))));
     resized();
     repaint();
 }
@@ -758,11 +807,11 @@ void SoundPage::refresh (bool alsoKitSlots)
 
 void SoundPage::paint (juce::Graphics& g)
 {
-    g.fillAll (kBackground);
+    g.fillAll (kPanel);
     g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
     for (const auto& h : headers)
     {
-        g.setColour (kAccent);
+        g.setColour (voiceColour (juce::jmax (0, shownStrip)));
         g.drawText (h.text.toUpperCase(), h.bounds, juce::Justification::centredLeft);
         g.setColour (kLine);
         g.fillRect (h.bounds.withY (h.bounds.getBottom() - 2).withHeight (1));
@@ -820,10 +869,18 @@ void ELXARTwoEditor::setUpHorizontalSlider (juce::Slider& s, juce::Label& l, con
 ELXARTwoEditor::ELXARTwoEditor (ELXARTwoProcessor& p)
     : AudioProcessorEditor (&p), proc (p), patternPage (p), soundPage (p)
 {
+    setLookAndFeel (&look);
+    tooltipWindow.setLookAndFeel (&look);
     addAndMakeVisible (content);
+    for (int s = 0; s < ELXARTwoProcessor::kNumStrips; ++s)
+    {
+        const juce::String prefix = "v" + juce::String (s + 1) + "_";
+        muteValues[(size_t) s] = proc.apvts.getRawParameterValue (prefix + "mute");
+        soloValues[(size_t) s] = proc.apvts.getRawParameterValue (prefix + "solo");
+    }
 
     // ---- top bar ----
-    styleCaption (title, juce::String ("ELXAR-Two  ") + ELXAR_VERSION_STRING + "  (Milestone 2, rough interface)", 16.0f, true);
+    styleCaption (title, "ELXAR-Two", 18.0f, true);
     content.addAndMakeVisible (title);
     styleCaption (tempoLabel, "Tempo: -", 13.0f);
     content.addAndMakeVisible (tempoLabel);
@@ -868,12 +925,13 @@ ELXARTwoEditor::ELXARTwoEditor (ELXARTwoProcessor& p)
     // ---- pages ----
     tabs.setTabBarDepth (26);
     tabs.setOutline (0);
-    tabs.addTab ("Pattern", kBackground, &patternPage, false);
-    tabs.addTab ("Sound", kBackground, &soundPage, false);
+    tabs.addTab ("Pattern", kPanel, &patternPage, false);
+    tabs.addTab ("Sound", kPanel, &soundPage, false);
     content.addAndMakeVisible (tabs);
 
     // ---- effect and master ----
     styleCaption (fxCaption, "EFFECT (one at a time, for the sounds with \"To FX\" on)  AND MASTER", 12.0f, true);
+    fxCaption.setColour (juce::Label::textColourId, kDim);
     content.addAndMakeVisible (fxCaption);
     styleCaption (fxTypeLabel, "Effect", 12.0f);
     content.addAndMakeVisible (fxTypeLabel);
@@ -906,10 +964,16 @@ ELXARTwoEditor::ELXARTwoEditor (ELXARTwoProcessor& p)
     }
     const float s = juce::jlimit (0.5f, 2.0f, proc.getUiScale());
     setSize (juce::roundToInt ((float) kBaseWidth * s), juce::roundToInt ((float) kBaseHeight * s));
+    sendLookAndFeelChange();   // everything made above picks up the look
     startTimerHz (30);
 }
 
-ELXARTwoEditor::~ELXARTwoEditor() { stopTimer(); }
+ELXARTwoEditor::~ELXARTwoEditor()
+{
+    stopTimer();
+    tooltipWindow.setLookAndFeel (nullptr);
+    setLookAndFeel (nullptr);
+}
 
 void ELXARTwoEditor::updateFxLabels()
 {
@@ -971,6 +1035,16 @@ void ELXARTwoEditor::timerCallback()
         patternBox.setSelectedId (proc.getCurrentPattern() + 1, juce::dontSendNotification);
     patternPage.timerTick();
 
+    // A strip is dimmed while its voice is silent: muted, or another voice is soloed.
+    bool anySolo = false;
+    for (auto* v : soloValues) anySolo = anySolo || (v != nullptr && v->load() > 0.5f);
+    for (int s = 0; s < strips.size(); ++s)
+    {
+        const bool muted = muteValues[(size_t) s] != nullptr && muteValues[(size_t) s]->load() > 0.5f;
+        const bool solo = soloValues[(size_t) s] != nullptr && soloValues[(size_t) s]->load() > 0.5f;
+        strips[s]->setAudible (! (muted || (anySolo && ! solo)));
+    }
+
     // A project was loaded or a kit recalled: show everything again.
     const uint32_t version = proc.getModelVersion();
     if (version != seenModelVersion)
@@ -1005,7 +1079,7 @@ void ELXARTwoEditor::timerCallback()
         : "ANOTHER ELXAR-Two IS ALREADY OPEN. Only the first one makes sound in this version.";
     if (statusLabel.getText() != status)
     {
-        statusLabel.setColour (juce::Label::textColourId, proc.engineAvailable() ? kDim : juce::Colour (0xffff6b6b));
+        statusLabel.setColour (juce::Label::textColourId, proc.engineAvailable() ? kDim : kWarning);
         statusLabel.setText (status, juce::dontSendNotification);
     }
 }
@@ -1015,6 +1089,26 @@ void ELXARTwoEditor::paint (juce::Graphics& g) { g.fillAll (kBackground); }
 void ELXARTwoEditor::Content::paint (juce::Graphics& g)
 {
     g.fillAll (kBackground);
+
+    // six dots in the voice colours, then the name (a label) and the version
+    for (int i = 0; i < ELXARTwoProcessor::kNumStrips; ++i)
+    {
+        g.setColour (voiceColour (i));
+        g.fillEllipse (12.0f + 13.0f * (float) i, 18.0f, 9.0f, 9.0f);
+    }
+    g.setColour (kDim);
+    g.setFont (juce::FontOptions (12.0f));
+    g.drawText (juce::String ("version ") + ELXAR_VERSION_STRING, owner.title.getRight() + 2, owner.title.getY() + 2, 110, owner.title.getHeight(), juce::Justification::centredLeft);
+
+    // panels behind the pages and behind the effect section
+    for (const auto& panel : { owner.pagePanel, owner.fxPanel })
+    {
+        g.setColour (kPanel);
+        g.fillRoundedRectangle (panel.toFloat(), 6.0f);
+        g.setColour (kLine);
+        g.drawRoundedRectangle (panel.toFloat().reduced (0.5f), 6.0f, 1.0f);
+    }
+
     g.setColour (kDim);
     g.setFont (juce::FontOptions (11.0f));
     g.drawText ("Unofficial, modified port of the LXR-02 sound engine and sequencer. Not affiliated with or approved by Erica Synths.",
@@ -1044,7 +1138,9 @@ void ELXARTwoEditor::layoutContent()
 
     // top bar (two lines)
     auto top = area.removeFromTop (26);
-    title.setBounds (top.removeFromLeft (330));
+    top.removeFromLeft (84);   // the six dots
+    title.setBounds (top.removeFromLeft (104));
+    top.removeFromLeft (110);  // the version
     sizeBox.setBounds (top.removeFromRight (78).reduced (0, 1));
     sizeCaption.setBounds (top.removeFromRight (84));
     top.removeFromRight (10);
@@ -1056,7 +1152,7 @@ void ELXARTwoEditor::layoutContent()
     patternBox.setBounds (top.removeFromRight (62).reduced (0, 1));
     patternCaption.setBounds (top.removeFromRight (54));
     auto info = area.removeFromTop (20);
-    tempoLabel.setBounds (info.removeFromLeft (360));
+    tempoLabel.setBounds (info.removeFromLeft (330));
     statusLabel.setBounds (info);
     area.removeFromTop (6);
 
@@ -1074,9 +1170,12 @@ void ELXARTwoEditor::layoutContent()
     area.removeFromTop (6);
 
     // effect and master at the bottom, the pages in between
-    auto fx = area.removeFromBottom (18 + 2 * 24);
+    auto fx = area.removeFromBottom (18 + 2 * 24 + 12);
+    fxPanel = fx;
+    fx = fx.reduced (8, 6);
     area.removeFromBottom (6);
-    tabs.setBounds (area);
+    pagePanel = area;
+    tabs.setBounds (area.reduced (2, 2));
 
     fxCaption.setBounds (fx.removeFromTop (18));
     auto place = [] (juce::Rectangle<int>& from, juce::Label& l, int labelWidth, juce::Component& c, int width)

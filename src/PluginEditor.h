@@ -2,9 +2,10 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "PluginProcessor.h"
 #include "SoundParams.h"
+#include "ElxarLook.h"
 
-// Milestone 2: still a rough, plain interface (original layout, not a copy of the hardware panel). Styling comes in
-// Milestone 3. The window is drawn at one fixed layout size and scaled as a whole, so it can be resized.
+// The plugin window. Original layout and look (src/ElxarLook.h), not a copy of the hardware panel. The window is
+// drawn at one fixed layout size and scaled as a whole, so it can be resized.
 
 // One voice panel: name, Mute / Solo / To-effect buttons, a "Hit" button, and five (hi-hat: six) sliders.
 class VoiceStrip : public juce::Component
@@ -13,6 +14,7 @@ public:
     VoiceStrip (ELXARTwoProcessor&, int stripIndex);
     void paint (juce::Graphics&) override;
     void resized() override;
+    void setAudible (bool);   // false = muted, or another voice is soloed: the strip is shown dimmed
 
 private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
@@ -20,6 +22,7 @@ private:
 
     ELXARTwoProcessor& proc;
     int strip;
+    bool audible = true;
     juce::TextButton mute { "Mute" }, solo { "Solo" }, toFx { "To FX" }, hit { "Hit" };
     juce::OwnedArray<juce::Slider> sliders;
     juce::OwnedArray<juce::Label> labels;
@@ -90,12 +93,13 @@ public:
 private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     void refreshStepEditor();
+    void colourStepEditor (int row);
     void writeStepFromEditor();
     void fillTargetBox (juce::ComboBox&);
     void setUpSmallSlider (juce::Slider&, juce::Label&, const juce::String& text, double lo, double hi, double value);
 
     ELXARTwoProcessor& proc;
-    int shownPattern = -1;
+    int shownPattern = -1, colouredRow = -1;
     bool updating = false;
 
     juce::Label barCaption, shuffleLabel, lengthCaption;
@@ -123,7 +127,7 @@ private:
 class KitControl : public juce::Component
 {
 public:
-    KitControl (ELXARTwoProcessor&, const elxar::ParamInfo&, int engineVoice);
+    KitControl (ELXARTwoProcessor&, const elxar::ParamInfo&, int engineVoice, juce::Colour accent);
     void resized() override;
     void refresh();   // show the processor's current value
 
@@ -170,7 +174,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    static constexpr int kBaseWidth = 1100, kBaseHeight = 800;   // the layout size; the window scales this
+    static constexpr int kBaseWidth = 1100, kBaseHeight = 820;   // the layout size; the window scales this
 
 private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
@@ -192,6 +196,7 @@ private:
                                 std::unique_ptr<SliderAttachment>&);
 
     ELXARTwoProcessor& proc;
+    elxarlook::Look look;     // declared before everything that is drawn with it
     Content content { *this };
     juce::TooltipWindow tooltipWindow { this };
 
@@ -215,6 +220,8 @@ private:
     std::array<juce::Label, 4> fxKnobLabels;
     std::array<std::unique_ptr<SliderAttachment>, 4> fxKnobAttachments;
     int shownFxType = -1, fxKindParam = -1;
+    juce::Rectangle<int> fxPanel, pagePanel;
+    std::array<std::atomic<float>*, (size_t) ELXARTwoProcessor::kNumStrips> muteValues {}, soloValues {};
     bool updatingFxKind = false;
 
     uint32_t seenModelVersion = 0;
