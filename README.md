@@ -5,8 +5,13 @@ LXR-02 drum synthesizer. **Not made, approved or supported by Erica Synths.** Do
 ELXAR-Two is a modified port and is marked as such.
 
 ## Status
-Milestone 1 (built Nov 9, 2026, **not yet tested in Logic**): the LXR-02 sound engine runs inside the plugin and
-there is a rough, plain interface.
+Milestone 1 (done, tested Nov 9, 2026): the LXR-02 sound engine runs inside the plugin and there is a rough, plain
+interface. Tested in Logic Pro 11.2 on an Apple silicon Mac (macOS Tahoe): all six voices sound from the Hit buttons
+and from the keys C1 to B1; the step grid follows Logic's transport and tempo and also runs in "Always" mode; the
+sliders, Mute and Solo work; all five effects work on the voices sent to them; the pattern generator works; dragging
+the MIDI pattern from the plugin window onto a Logic track works (and so does dragging the file from Finder);
+settings and patterns come back after saving and reopening the project; a second instance shows its warning and
+stays silent. Not yet tested on the Intel Mac (planned for Milestone 3).
 
 - Six voices (Drum 1, Drum 2, Drum 3, Snare, Hi-hat, Cymbal) from the firmware's own sound code, starting with
   the firmware's built-in "init kit".
@@ -32,6 +37,7 @@ Milestone 0 (done, tested Nov 9, 2026): the empty instrument shell loaded and pl
 - The step grid and the pattern generator are simple stand-ins. The firmware's own sequencer (64 steps,
   probability, parameter locks, its Euclidean generator) is planned for Milestone 2.
 - Only a handful of the roughly 240 sound parameters have sliders so far.
+- The window has a fixed size (a resizable window is planned).
 - The Intel build needs an Intel processor from 2012 or later.
 - There is no hardware LXR-02 to compare against; the port is checked against the source code only.
 

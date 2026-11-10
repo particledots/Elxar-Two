@@ -17,7 +17,15 @@
 - Finding: the LXR-02 has one effect unit (a voice is routed through it or not), not separate delay and reverb
   sends; the reverb is switched off in the hardware firmware and switched on here as experimental.
 - Settings and patterns are stored with the Logic project.
-- Result: not yet tested in Logic.
+- Fixed during the build: the firmware's reverb wrote one sample past its output buffer with a mono effect routing
+  (found by the engine test on Apple silicon).
+- Result (Nov 9, 2026): tested in Logic Pro 11.2 on macOS Tahoe (Apple silicon). All 14 checks passed: the plugin loads
+  as version 0.1.0; all six voices sound from the Hit buttons and from the keys C1 to B1; the step grid follows Logic's
+  transport and tempo and runs in "Always" mode; grid editing, sliders, Mute and Solo work; Delay, Drive, Compressor,
+  Ring mod and Reverb work; Generate makes playable beats; dragging MIDI out of the plugin window onto a Logic track
+  works, and so does the Finder fallback; settings and patterns survive save and reopen; a second instance warns and
+  stays silent. No clicks, crackles or level problems reported. Milestone 1 is complete.
+- Requested for later: an option to resize the window.
 
 ## 0.0.1 (unreleased): Milestone 0
 - Imported the Erica Synths LXR-02 firmware source (unmodified, commit a43cd4f) into `third_party/lxr-firmware`.
