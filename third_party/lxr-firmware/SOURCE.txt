@@ -1,6 +1,7 @@
-Imported unmodified from https://github.com/erica-synths/lxr-desktop-app
+Imported from https://github.com/erica-synths/lxr-desktop-app
 Commit: a43cd4fcda23ec3d577dc425261c3eb28bd5abff
-Imported: 2026-11-09 (Milestone 0)
-Included: LICENSE, NOTICE.md, README.md, Core/Inc (all headers), Core/Src/Soundengine, Core/Src/Parameters.c
+Imported: 2026-11-09 (Milestone 0, unmodified). MODIFIED since Milestone 1 (2026-11-09): see ELXAR-CHANGES.md.
+Included: LICENSE, NOTICE.md, README.md, Core/Inc (headers, without main.h and delay.h), Core/Src/Soundengine,
+          Core/Src/Parameters.c, Core/Src/menu/Cc2Text.c, Core/Src/Preset/initKit.c
 Not included: STM32 HAL/CMSIS, USB library, LCD/menu/button/LED/preset code, bootloader (not used by the plugin).
-Any later changes to these files will be listed in CHANGELOG.md and marked in the files themselves (NOTICE.md term 2).
+This is a modified version and is not the official Erica Synths firmware (NOTICE.md term 2).

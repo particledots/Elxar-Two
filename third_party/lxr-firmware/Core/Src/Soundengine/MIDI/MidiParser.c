@@ -1296,16 +1296,16 @@ void midiParser_ccHandler(MidiMsg msg, uint8_t updateOriginalValue, uint8_t isFl
 			case CC2_OFFSET_LFO1:
 			case CC2_OFFSET_LFO2:
 			case CC2_OFFSET_LFO3:
-				voiceArray[msg.data1-CC2_OFFSET_LFO1].lfo.phaseOffset = value.flt * 0xffffffff;
+				voiceArray[msg.data1-CC2_OFFSET_LFO1].lfo.phaseOffset = ELXAR_F2U(value.flt * 0xffffffff); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 				break;
 			case CC2_OFFSET_LFO4:
-				snareVoice.lfo.phaseOffset = value.flt * 0xffffffff;
+				snareVoice.lfo.phaseOffset = ELXAR_F2U(value.flt * 0xffffffff); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 				break;
 			case CC2_OFFSET_LFO5:
-				cymbalVoice.lfo.phaseOffset = value.flt * 0xffffffff;
+				cymbalVoice.lfo.phaseOffset = ELXAR_F2U(value.flt * 0xffffffff); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 				break;
 			case CC2_OFFSET_LFO6:
-				hatVoice.lfo.phaseOffset = value.flt * 0xffffffff;
+				hatVoice.lfo.phaseOffset = ELXAR_F2U(value.flt * 0xffffffff); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 				break;
 
 			case CC2_AUDIO_OUT1:

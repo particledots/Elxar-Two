@@ -4,11 +4,19 @@ ELXAR-Two third-party components
    Copyright (C) 2012-2026 Erica Synths. GNU GPL version 3 (GPL-3.0-only) with the additional permission and terms
    in third_party/lxr-firmware/NOTICE.md (trademark and marking of modified versions). Original code (c) 2012-2013
    Julian Schmidt / Sonic Potions. Source: https://github.com/erica-synths/lxr-desktop-app
-   Imported unmodified at commit a43cd4fcda23ec3d577dc425261c3eb28bd5abff; see third_party/lxr-firmware/SOURCE.txt.
+   Imported at commit a43cd4fcda23ec3d577dc425261c3eb28bd5abff and MODIFIED for the plugin (since Milestone 1). Every change
+   is marked "ELXAR-Two change" in the file and listed in third_party/lxr-firmware/ELXAR-CHANGES.md.
    ELXAR-Two is an unofficial, modified port. It is not made, approved or supported by Erica Synths.
    The LXR hardware design (panel, artwork, schematics) is not licensed and is not used here.
 
-2. JUCE 8.0.6 (https://juce.com), downloaded at build time. Used under the AGPL-3.0 option of the JUCE licence.
+2. Prior art that this port learned from (no files copied; ideas and bug fixes re-applied, credited in the source):
+   - LXRXXL by L'Cronx (https://github.com/sunskiefer/LXR02XXL), GPL-3.0-only: which firmware files a plugin needs and
+     how a kit is sent to the engine.
+   - OpenElixir-02 by Moritz Waser (https://github.com/tunefish777/openelixir-02), GPL-3.0: fixes for memory errors in
+     the stock firmware (ping-pong delay, distortion table, pitch envelope slope, snare and compressor clipping).
+   - particledots/beads-plugin: the sample-rate converter (src/Resampler.h) that src/engine/ElxarEngine.h adapts.
+
+3. JUCE 8.0.6 (https://juce.com), downloaded at build time. Used under the AGPL-3.0 option of the JUCE licence.
 
 ELXAR-Two itself is released under GPL-3.0 (see LICENSE). The complete source for any binary is in this repository:
 https://github.com/particledots/Elxar-Two

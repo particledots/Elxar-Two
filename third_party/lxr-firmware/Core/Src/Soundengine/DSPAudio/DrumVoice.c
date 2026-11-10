@@ -35,7 +35,7 @@ IN_ITCM_RAM void setPan(const uint8_t voiceNr, const uint8_t pan)
 //---------------------------------------------------
 void drum_setPhase(const uint8_t phase, const uint8_t voiceNr)
 {
-	const uint32_t startPhase = (phase/127.f)*0xffffffff;
+	const uint32_t startPhase = ELXAR_F2U((phase/127.f)*0xffffffff); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 	voiceArray[voiceNr].osc.startPhase = startPhase;
 	voiceArray[voiceNr].modOsc.startPhase = startPhase;
 }

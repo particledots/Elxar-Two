@@ -193,7 +193,8 @@ void Snare_calcSyncBlock(int16_t* buf, const uint8_t size)
 			//add transient sample
 			//tmp	= __QADD16(transBuf[j],(int16_t)tmp);
 			tmp	+= transBuf[j];
-			buf[j] =   snareVoice.combinedVolume  * tmp * calcOnePole( &snareVoice.FaderVolumeFilter, adc_getFaderVolume(3));
+			/* ELXAR-Two change: clip instead of wrapping around (fix from OpenElixir-02) */
+			buf[j] =   __SSAT((int32_t)(snareVoice.combinedVolume  * tmp * calcOnePole( &snareVoice.FaderVolumeFilter, adc_getFaderVolume(3))), 16);
 
 #else
 
@@ -218,7 +219,8 @@ void Snare_calcSyncBlock(int16_t* buf, const uint8_t size)
 			//add transient sample
 			//tmp	= __QADD16(transBuf[j],(int16_t)tmp);
 			tmp	+= transBuf[j];
-			buf[j] =  snareVoice.combinedVolume * tmp * calcOnePole( &snareVoice.FaderVolumeFilter, adc_getFaderVolume(3));
+			/* ELXAR-Two change: clip instead of wrapping around (fix from OpenElixir-02) */
+			buf[j] =  __SSAT((int32_t)(snareVoice.combinedVolume * tmp * calcOnePole( &snareVoice.FaderVolumeFilter, adc_getFaderVolume(3))), 16);
 #else
 			//add filter to buffer
 			buf[j] *= snareVoice.mix;

@@ -139,6 +139,8 @@ float diode(float in)
 	//float index = (in+4.2f) * 30.47f; // [0:256]
 
 	uint16_t itg = (int16_t) index;
+	/* ELXAR-Two change: at full input the interpolation read one entry past the table (fix from OpenElixir-02). */
+	if(itg >= 256) return table_1n914[256];
 	float frac = index - itg;
 	return lerp(table_1n914[itg], table_1n914[itg+1], frac);
 

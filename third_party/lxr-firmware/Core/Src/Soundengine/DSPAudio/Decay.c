@@ -73,7 +73,8 @@ void DecayEg_setDecay(DecayEg* eg, uint8_t data2)
 //--------------------------------------------------
 IN_ITCM_RAM void DecayEg_setSlope(DecayEg* eg, uint8_t data2)
 {
-	const float amount 	= ((data2/127.f)-0.5f)*2;
+	/* ELXAR-Two change: slope 127 divided by zero and silenced the oscillator (fix from OpenElixir-02) */
+	const float amount 	= data2 < 127 ? ((data2/127.f)-0.5f)*2 : 0.5f*1.999f;
 	eg->slope 			= 2*amount/(1-amount);
 }
 //--------------------------------------------------

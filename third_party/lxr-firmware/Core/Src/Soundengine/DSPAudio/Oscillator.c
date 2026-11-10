@@ -21,7 +21,7 @@
 
 static __inline uint32_t freq2PhaseIncr(const float f) //4096
 {
-	return (((TABLESIZE*f)/REAL_FS))*1048576 ; // 1048576 <-> (<<20)
+	return ELXAR_F2U((((TABLESIZE*f)/REAL_FS))*1048576) ; // 1048576 <-> (<<20) /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 }
 //TODO die phaseInc berechnung kann man doch sicher per LUT machen!
 //-----------------------------------------------------------
@@ -32,7 +32,7 @@ static __inline uint8_t fast_log2 (const uint32_t val)
 //-----------------------------------------------------------
 static __inline int freqToMidiNote(const float f)
 {
-	return (12*fast_log2((uint32_t)(f/440.f)))+70;
+	return (12*fast_log2(ELXAR_F2U(f/440.f)))+70; /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 }
 //-----------------------------------------------------------
 static __inline uint8_t freqToTableIndex(const float f)
@@ -44,7 +44,7 @@ static __inline uint8_t freqToTableIndex(const float f)
 //-----------------------------------------------------------
 static __inline uint32_t freq2PhaseIncr1024(const float f)
 {
-	return (((1024*f)/REAL_FS))*4194304 ; //(<<22)
+	return ELXAR_F2U((((1024*f)/REAL_FS))*4194304) ; //(<<22) /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 }
 //-----------------------------------------------------------
 static __inline uint32_t freq2PhaseIncr32767(const float f)
@@ -114,7 +114,7 @@ IN_ITCM_RAM void calcFmSineBlock(OscInfo* osc, int16_t* modBuffer, int16_t* buf,
 		const uint32_t oscPhase = osc->phase;
 		int16_t oscOut ;
 
-		const uint32_t index =  oscPhase + (((uint32_t)(modBuffer[i]*osc->fmMod))<<17);
+		const uint32_t index =  oscPhase + ((ELXAR_F2U(modBuffer[i]*osc->fmMod))<<17); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 		uint32_t  itg	= index>>20;
 
 	#if INTERPOLATE_FM_OSC
@@ -137,7 +137,7 @@ int16_t calcFmSine(OscInfo* osc, OscInfo* modOsc)
 	const uint32_t oscPhase 	= osc->phase;
 	int16_t oscOut ;
 
-	const uint32_t index =  oscPhase + (((uint32_t)(modOsc->output*osc->fmMod))<<17);
+	const uint32_t index =  oscPhase + ((ELXAR_F2U(modOsc->output*osc->fmMod))<<17); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 	uint32_t  itg	= index>>20;
 
 #if INTERPOLATE_FM_OSC
@@ -162,7 +162,7 @@ IN_ITCM_RAM void calcFmBlock(OscInfo* osc, const int16_t table[][1024], int16_t*
 	{
 		const uint32_t oscPhase = osc->phase;
 		int16_t oscOut ;
-		const uint32_t index =  oscPhase + (((uint32_t)(modBuffer[i]*osc->fmMod))<<19);
+		const uint32_t index =  oscPhase + ((ELXAR_F2U(modBuffer[i]*osc->fmMod))<<19); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 
 		uint32_t  itg	= index>>22; //10 bit index, 22 bit fractional part
 
@@ -171,7 +171,7 @@ IN_ITCM_RAM void calcFmBlock(OscInfo* osc, const int16_t table[][1024], int16_t*
 		//const float frac	= (index&0x003FFFFF)*2.38418579101562e-07f;
 		//oscOut += frac*(table[osc->tableOffset][itg] - oscOut);
 		uint32_t frac = index & 0x3FFFFF;
-		oscOut = oscOut + (int16_t)(((int64_t)(table[osc->tableOffset][itg] - oscOut) * frac)   >>22);
+		oscOut = oscOut + (int16_t)(((int64_t)(table[osc->tableOffset][itg & 0x3FF] - oscOut) * frac)   >>22); /* ELXAR-Two change: wrap the table index (it read one entry past the 1024-entry table) */
 
 	#else
 		oscOut = table[overtoneIndex][itg];
@@ -190,8 +190,8 @@ void calcPwmFmBlock(OscInfo* osc, int16_t* modBuffer, int16_t* buf, uint8_t size
 	{
 		const uint32_t oscPhase = osc->phase;
 		int16_t oscOut ;
-		const uint32_t index =  oscPhase + (((uint32_t)(modBuffer[i]*osc->fmMod))<<19);
-		const uint32_t index2 = index + pwm * (UINT32_MAX/2);
+		const uint32_t index =  oscPhase + ((ELXAR_F2U(modBuffer[i]*osc->fmMod))<<19); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
+		const uint32_t index2 = ELXAR_F2U(index + pwm * (UINT32_MAX/2)); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 
 		 uint32_t  itg	 = index>>22;
 		 uint32_t  itg2 = index2>>22;
@@ -201,13 +201,13 @@ void calcPwmFmBlock(OscInfo* osc, int16_t* modBuffer, int16_t* buf, uint8_t size
 		//const float frac	= (index&0x003FFFFF)*2.38418579101562e-07f;
 		//oscOut += frac*(sawTable[osc->tableOffset][itg] - oscOut);
 		uint32_t frac = index & 0x3FFFFF;
-		oscOut = oscOut + (int16_t)(((int64_t)(sawTable[osc->tableOffset][itg] - oscOut) * frac)   >>22);
+		oscOut = oscOut + (int16_t)(((int64_t)(sawTable[osc->tableOffset][itg & 0x3FF] - oscOut) * frac)   >>22); /* ELXAR-Two change: wrap the table index (it read one entry past the 1024-entry table) */
 
 		int16_t osc2Out = sawTable[osc->tableOffset][itg2++];// * -1;
 		//const float frac	= (index&0x003FFFFF)*2.38418579101562e-07f;
 		frac = index2 & 0x3FFFFF;
 		//osc2Out += frac*(sawTable[osc->tableOffset][itg2] * -1 - osc2Out);
-		osc2Out = osc2Out + (int16_t)(((int64_t)(sawTable[osc->tableOffset][itg2] - osc2Out) * frac)   >>22);
+		osc2Out = osc2Out + (int16_t)(((int64_t)(sawTable[osc->tableOffset][itg2 & 0x3FF] - osc2Out) * frac)   >>22); /* ELXAR-Two change: wrap the table index (it read one entry past the 1024-entry table) */
 
 		oscOut =  __QSUB16(oscOut,osc2Out);
 
@@ -228,7 +228,7 @@ int16_t calcFm(OscInfo* osc, OscInfo* modOsc, const int16_t table[][1024])
 	const uint32_t oscPhase = osc->phase;
 	int16_t oscOut ;
 
-	const uint32_t index =  oscPhase + (((uint32_t)(modOsc->output*osc->fmMod))<<19);
+	const uint32_t index =  oscPhase + ((ELXAR_F2U(modOsc->output*osc->fmMod))<<19); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 
 	uint32_t  itg	= index>>22;
 
@@ -237,7 +237,7 @@ int16_t calcFm(OscInfo* osc, OscInfo* modOsc, const int16_t table[][1024])
 	//const float frac	= (index&0x003FFFFF)*2.38418579101562e-07f;
 	//oscOut += frac*(table[osc->tableOffset][itg] - oscOut);
 	uint32_t frac = index & 0x3FFFFF;
-	oscOut = oscOut + (int16_t)(((int64_t)(table[osc->tableOffset][itg] - oscOut) * frac)   >>22);
+	oscOut = oscOut + (int16_t)(((int64_t)(table[osc->tableOffset][itg & 0x3FF] - oscOut) * frac)   >>22); /* ELXAR-Two change: wrap the table index (it read one entry past the 1024-entry table) */
 #else
 	oscOut = table[overtoneIndex][itg];
 #endif
@@ -342,12 +342,12 @@ IN_ITCM_RAM void calcNoiseBlock(OscInfo* osc, int16_t* buf, const uint8_t size ,
 //-----------------------------------------------------------
 int16_t calcNoise(OscInfo* osc)
 {
+	/* ELXAR-Two change: the original read an ARM processor flag to see the phase wrap around;
+	 * compare with the previous phase instead (as calcNoiseBlock does). */
+	const uint32_t lastPhase = osc->phase;
 	osc->phase += osc->phaseInc;
 
-	//check overflow flag, ( if osc->phase == osc->phaseInc a reset occured ==> retrigger, too
-	APSR_Type apsr;
-	apsr.w = __get_APSR();
-	if(apsr.b.V ||  (osc->phase == osc->phaseInc))
+	if((lastPhase > osc->phase) ||  (osc->phase == osc->phaseInc))
 	{
 		//overflow happened -> phaseWrapped
 
@@ -461,7 +461,7 @@ IN_ITCM_RAM void calcWavetableOscBlock(OscInfo* osc, const int16_t table[][1024]
 			//const float frac = (itg&0x003FFFFF)*2.38418579101562e-07f; //2.38... => 1.f/0x3fffff
 			//oscOut += frac*(table[osc->tableOffset][itg] - oscOut);
 			uint32_t frac = oscPhase & 0x3FFFFF;
-			oscOut = oscOut + (int16_t)(((int64_t)(table[osc->tableOffset][itg] - oscOut) * frac)   >>22);
+			oscOut = oscOut + (int16_t)(((int64_t)(table[osc->tableOffset][itg & 0x3FF] - oscOut) * frac)   >>22); /* ELXAR-Two change: wrap the table index (it read one entry past the 1024-entry table) */
 		#else
 			oscOut = table[osc->tableOffset][itg];
 		#endif
@@ -485,7 +485,7 @@ int16_t calcWavetableOsc(OscInfo* osc,  const int16_t table[][1024])
 	//const float frac = (itg&0x003FFFFF)*2.38418579101562e-07f; //2.38... => 1.f/0x3fffff
 	//oscOut += frac*(table[osc->tableOffset][itg] - oscOut);
 	uint32_t frac = oscPhase & 0x3FFFFF;
-	oscOut = oscOut + (int16_t)(((int64_t)(table[osc->tableOffset][itg] - oscOut) * frac)   >>22);
+	oscOut = oscOut + (int16_t)(((int64_t)(table[osc->tableOffset][itg & 0x3FF] - oscOut) * frac)   >>22); /* ELXAR-Two change: wrap the table index (it read one entry past the 1024-entry table) */
 #else
 	oscOut = table[osc->tableOffset][itg];
 #endif
@@ -567,7 +567,7 @@ void calcUserSampleOscFmBlock(OscInfo* osc,int16_t* modBuffer, int16_t* buf, uin
 		const uint32_t oscPhase 	= osc->phase;
 		int16_t oscOut ;
 
-		const uint32_t index =  oscPhase + (((uint32_t)(modBuffer[i]*osc->fmMod))<<14);
+		const uint32_t index =  oscPhase + ((ELXAR_F2U(modBuffer[i]*osc->fmMod))<<14); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 		uint32_t  itg	= index>>17;
 
 	#if INTERPOLATE_FM_OSC
@@ -662,7 +662,7 @@ IN_ITCM_RAM void calcPwmBlock(OscInfo* osc, int16_t* buf, uint8_t size ,const fl
 	for(i=0;i<size;i++)
 	{
 		const uint32_t oscPhase = osc->phase;
-		const uint32_t oscPhase2 = osc->phase + pwm * (UINT32_MAX/2);
+		const uint32_t oscPhase2 = ELXAR_F2U(osc->phase + pwm * (UINT32_MAX/2)); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 		int16_t oscOut ;
 		uint32_t  itg	= oscPhase>>22;
 		uint32_t  itg2	= oscPhase2>>22;
@@ -674,13 +674,13 @@ IN_ITCM_RAM void calcPwmBlock(OscInfo* osc, int16_t* buf, uint8_t size ,const fl
 			//const float frac = (itg&0x003FFFFF)*2.38418579101562e-07f;
 			//oscOut += frac*(sawTable[osc->tableOffset][itg] - oscOut);
 			uint32_t frac = oscPhase & 0x3FFFFF;
-			oscOut = oscOut + (int16_t)(((int64_t)(sawTable[osc->tableOffset][itg] - oscOut) * frac)   >>22);
+			oscOut = oscOut + (int16_t)(((int64_t)(sawTable[osc->tableOffset][itg & 0x3FF] - oscOut) * frac)   >>22); /* ELXAR-Two change: wrap the table index (it read one entry past the 1024-entry table) */
 
 			int16_t osc2Out = sawTable[osc->tableOffset][itg2++] ;//* -1;
 			//const float frac	= (index&0x003FFFFF)*2.38418579101562e-07f;
 			//osc2Out += frac*(sawTable[osc->tableOffset][itg2] * -1 - osc2Out);
 			frac = oscPhase2 & 0x3FFFFF;
-			osc2Out = osc2Out + (int16_t)(((int64_t)(sawTable[osc->tableOffset][itg2++] - osc2Out) * frac)   >>22);
+			osc2Out = osc2Out + (int16_t)(((int64_t)(sawTable[osc->tableOffset][itg2 & 0x3FF] - osc2Out) * frac)   >>22); /* ELXAR-Two change: wrap the table index (it read one entry past the 1024-entry table) */
 
 			oscOut =  __QSUB16(oscOut,osc2Out);
 

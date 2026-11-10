@@ -96,6 +96,12 @@ void Delay_processPingPong(Delay *d, int16_t *fxBuffer,int16_t* outL, int16_t* o
 	int32_t x;
 	int32_t* stereoOut = (int32_t*)outL;
 
+	/* ELXAR-Two change: keep the pointers inside the ping-pong half buffer. Right after switching from the
+	 * normal delay they could point past it and read/write beyond FX_BUFFER (found by OpenElixir-02 and LXRXXL). */
+	d->write &= FX_BUFFER_SIZE>>1;
+	d->oldRead &= FX_BUFFER_SIZE>>1;
+	d->newRead &= FX_BUFFER_SIZE>>1;
+
 	for(uint8_t i=0;i<size;i++)
 	{
 

@@ -41,6 +41,8 @@ static void modNode_setOriginalValueChanged(ModulationNode* vm, uint16_t idx)
 
 	if(vm->destination == idx) { //parameter is active in this modulator
 		const Parameter *p=&parameterArray[idx];
+		/* ELXAR-Two change: a destination without a parameter has a NULL pointer; reading it crashes on a computer. */
+		if(p->ptr == NULL) return;
 
 			//update orig value
 			switch(p->type)

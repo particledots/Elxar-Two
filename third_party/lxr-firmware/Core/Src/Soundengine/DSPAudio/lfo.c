@@ -115,7 +115,7 @@ IN_ITCM_RAM uint32_t lfo_calcPhaseInc(float freq, uint8_t sync)
 {
 	if(sync==0)//no sync
 	{
-		return freq/(LFO_SR) * 0xffffffff;
+		return ELXAR_F2U(freq/(LFO_SR) * 0xffffffff); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 	}
 
 	//sync is on
@@ -130,7 +130,7 @@ IN_ITCM_RAM uint32_t lfo_calcPhaseInc(float freq, uint8_t sync)
 	{
 		default: //no sync
 
-		return freq/(LFO_SR) * 0xffffffff;
+		return ELXAR_F2U(freq/(LFO_SR) * 0xffffffff); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 		break;
 
 		case 1: // 4/1
@@ -179,7 +179,7 @@ IN_ITCM_RAM uint32_t lfo_calcPhaseInc(float freq, uint8_t sync)
 	}
 
 	float lfoSyncfreq = tempoAsFrequency * scaler;
-	return (lfoSyncfreq / (LFO_SR)) * 0xffffffff;
+	return ELXAR_F2U((lfoSyncfreq / (LFO_SR)) * 0xffffffff); /* ELXAR-Two change: ELXAR_F2U converts like the hardware chip on every processor */
 }
 //-------------------------------------------------------------
 IN_ITCM_RAM void lfo_setFreq(Lfo *lfo, float f)

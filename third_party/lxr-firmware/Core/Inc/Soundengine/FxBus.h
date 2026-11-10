@@ -23,7 +23,10 @@
 #include "Soundengine/DSPAudio/FX/Delay.h"
 #include "Soundengine/DSPAudio/FX/Reverb.h"
 
+/* ELXAR-Two change: the plugin build can switch the plate reverb on (the hardware ships with it off). */
+#ifndef USE_REVERB
 #define USE_REVERB 0
+#endif
 
 enum FxTypeEnum
 {
