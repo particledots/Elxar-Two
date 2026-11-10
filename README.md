@@ -5,7 +5,14 @@ LXR-02 drum synthesizer. **Not made, approved or supported by Erica Synths.** Do
 ELXAR-Two is a modified port and is marked as such.
 
 ## Status
-Milestone 2 (built Nov 9, 2026, version 0.2.0; waiting for the test in Logic): everything that plays and saves.
+Milestone 2 (done, version 0.2.0, tested Nov 10, 2026): everything that plays and saves. Tested on both test Macs:
+Logic Pro 10.7.8 on macOS 12.7.8 (Intel) and Logic Pro 11.2 on macOS Tahoe (Apple silicon). All 21 checks passed: the
+sequencer follows Logic's transport, tempo changes and jumps to another bar; grid editing, row lengths, bars 2 to 4,
+the step editor (velocity, probability, flam, shift, pitch, automation), shuffle, pattern change, copy / paste /
+clear, both generators, drag MIDI out, "Always" mode, the Sound page, kit store / recall / init, automation in Logic,
+all window sizes, save and reopen, and a Milestone 1 project all work. No clicks, dropouts or stuck notes; Logic's
+CPU meter was low (about 7 %). This was also the first test of the Intel build's sound. One part of check 4 is not
+confirmed: looping with Logic's Cycle switched on (jumping between bars was tested and stays in time).
 
 - **The firmware's own step sequencer** now plays the patterns, locked to Logic's song position and tempo (or
   running always). 16 patterns; 7 rows; up to 64 steps per row (4 bars of 16), and every row can have its own
@@ -37,7 +44,7 @@ and from the keys C1 to B1; the step grid follows Logic's transport and tempo an
 sliders, Mute and Solo work; all five effects work on the voices sent to them; the pattern generator works; dragging
 the MIDI pattern from the plugin window onto a Logic track works (and so does dragging the file from Finder);
 settings and patterns come back after saving and reopening the project; a second instance shows its warning and
-stays silent. Not yet tested on the Intel Mac (planned for Milestone 3).
+stays silent. (The Intel Mac was first tested with sound in Milestone 2.)
 
 Milestone 0 (done, tested Nov 9, 2026): the empty instrument shell loaded and played a test tone in Logic Pro 10.7.8
 (Intel Mac, macOS 12.7.8) and Logic Pro 11.2 (Apple silicon Mac, macOS Tahoe).

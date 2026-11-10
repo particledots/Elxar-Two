@@ -36,6 +36,16 @@
 - Engine test: new sequencer checks (step timing, row length, song position, flam, shift, probability, pattern
   change, per-step automation, Euclid for all lengths 1 to 16), a sequenced beat rendered through the same clock code
   the plugin uses, and the random stress test now also drives the sequencer.
+- Result (Nov 10, 2026): tested on both test Macs, Logic Pro 10.7.8 on macOS 12.7.8 (Intel) and Logic Pro 11.2 on
+  macOS Tahoe (Apple silicon). All 21 checks passed: version shows 0.2.0; the beat follows Logic's transport, tempo
+  changes and jumps to another bar; grid editing, row lengths and bars 2 to 4 work; velocity, probability, flam,
+  shift, pitch and per-step automation are audible; shuffle swings; pattern change happens at the end of the pattern;
+  copy, paste and clear work; "Generate beat" and "Fill selected row" work; the dragged MIDI region matches the
+  pattern including flam and shift; "Always" mode works; the Sound page, kit store / recall / init, Logic automation
+  of a strip slider and all window sizes work; everything comes back after save and reopen; a Milestone 1 project
+  opens with its patterns and settings. No audible clicks or glitches; CPU meter about 7 %. First test of the Intel
+  build's sound: passed. Not confirmed: looping with Logic's Cycle switched on (the tester was unsure where Cycle is;
+  jumping between bars was tested). Milestone 2 is complete.
 
 ## 0.1.0 (unreleased): Milestone 1
 - The LXR-02 sound engine now runs in the plugin. The firmware's sound code is compiled with small stand-ins for
