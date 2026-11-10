@@ -15,7 +15,7 @@ jobs:
       - name: Configure (universal, macOS 11+)
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
-      - name: Engine test (headless: renders drum hits to WAV and checks them)
+      - name: Engine test (headless, renders drum hits to WAV and checks them)
         run: |
           cmake --build build --target engine_test -j4 > engine_log.txt 2>&1 || {
             grep -E "error|Error" engine_log.txt | head -8 | while IFS= read -r line; do echo "::error::ENGINE BUILD: $line"; done
