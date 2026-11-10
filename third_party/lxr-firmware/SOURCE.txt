@@ -1,0 +1,6 @@
+Imported unmodified from https://github.com/erica-synths/lxr-desktop-app
+Commit: a43cd4fcda23ec3d577dc425261c3eb28bd5abff
+Imported: 2026-11-09 (Milestone 0)
+Included: LICENSE, NOTICE.md, README.md, Core/Inc (all headers), Core/Src/Soundengine, Core/Src/Parameters.c
+Not included: STM32 HAL/CMSIS, USB library, LCD/menu/button/LED/preset code, bootloader (not used by the plugin).
+Any later changes to these files will be listed in CHANGELOG.md and marked in the files themselves (NOTICE.md term 2).
