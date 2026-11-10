@@ -22,8 +22,21 @@ jobs:
             tail -20 engine_log.txt; exit 1; }
           mkdir -p test-renders/apple-silicon test-renders/intel
           # Apple silicon half of the universal binary: must pass.
-          arch -arm64 build/engine_test test-renders/apple-silicon 48000 | tee engine_result.txt
-          grep -q "RESULT: all checks passed" engine_result.txt || { grep FAIL engine_result.txt | while IFS= read -r line; do echo "::error::ENGINE TEST: $line"; done; exit 1; }
+          file build/engine_test
+          set +e
+          arch -arm64 build/engine_test test-renders/apple-silicon 48000 > engine_result.txt 2>&1
+          STATUS=$?
+          set -e
+          cat engine_result.txt
+          if [ $STATUS -ne 0 ] || ! grep -q "RESULT: all checks passed" engine_result.txt; then
+            echo "::error::ENGINE TEST: stopped with exit status $STATUS; last line: $(tail -1 engine_result.txt)"
+            grep FAIL engine_result.txt | while IFS= read -r line; do echo "::error::ENGINE TEST: $line"; done
+            # Where did it stop? Run it once more inside the debugger and print the call stack.
+            lldb -b -o run -k "bt" -k "frame variable" -k "quit 1" -- build/engine_test test-renders/apple-silicon 48000 > lldb.txt 2>&1 || true
+            grep -n -E "stop reason|frame #" lldb.txt | head -14 | while IFS= read -r line; do echo "::error::TRACE: $line"; done
+            tail -60 lldb.txt
+            exit 1
+          fi
           # Intel half, run through Rosetta when the runner has it. Reported, but does not stop the build.
           if arch -x86_64 /usr/bin/true 2>/dev/null; then
             arch -x86_64 build/engine_test test-renders/intel 48000 > engine_result_intel.txt 2>&1 || true

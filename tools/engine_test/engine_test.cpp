@@ -67,6 +67,7 @@ static void render (elxar::Engine& e, std::vector<float>& l, std::vector<float>&
 
 int main (int argc, char** argv)
 {
+    std::setvbuf (stdout, nullptr, _IONBF, 0);   // print each line at once, so nothing is lost if the test stops early
     const std::string dir = argc > 1 ? argv[1] : ".";
     const int rate = argc > 2 ? std::atoi (argv[2]) : 48000;
     static const char* names[7] = { "drum1", "drum2", "drum3", "snare", "cymbal", "hihat_closed", "hihat_open" };

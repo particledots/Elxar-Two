@@ -45,7 +45,8 @@ set_target_properties(elxar_core PROPERTIES
 if(NOT MSVC)
   # -fno-strict-aliasing / -fgnu89-inline: the firmware was written for one specific ARM compiler setup and relies on both.
   # -w: do not print the firmware's many harmless warnings.
-  target_compile_options(elxar_core PRIVATE -fno-strict-aliasing -fgnu89-inline -w)
+  # -g: keep function and line names so a crash in the engine test can be traced (does not change the plugin's sound or size on macOS).
+  target_compile_options(elxar_core PRIVATE -fno-strict-aliasing -fgnu89-inline -w -g)
   # The delay and reverb store half-precision numbers (__fp16). On Intel, -mf16c makes the processor convert them
   # directly instead of calling system helper functions whose behaviour differs between macOS versions.
   if(APPLE)
@@ -59,6 +60,7 @@ endif()
 #   cmake -S . -B build -DELXAR_BUILD_PLUGIN=OFF && cmake --build build --target engine_test
 add_executable(engine_test tools/engine_test/engine_test.cpp)
 target_link_libraries(engine_test PRIVATE elxar_core)
+target_compile_options(engine_test PRIVATE -g)
 if(UNIX AND NOT APPLE)
   target_link_libraries(engine_test PRIVATE m)
 endif()
