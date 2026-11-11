@@ -8,9 +8,9 @@ Six voices (three drums, snare, hi-hat, cymbal), the firmware's effect unit, and
 locked to Logic's transport, in a window with one colour per voice.
 
 ## Status
-Version 1.1.0: kit files and Random kit (added on top of the finished 1.0.0). Version 1.0.0 was tested in Logic on
-both test Macs on Nov 10, 2026: all 20 checks passed (see Test history). Version 1.1.0 has passed the automatic
-tests (kit file reader, Random kit, plugin test) and is waiting for its test in Logic on both Macs.
+Version 1.1.0: kit files and Random kit (added on top of the finished 1.0.0). Tested in Logic on both test Macs on
+Nov 10, 2026: all 9 checks answered YES (see Test history). One detail was not recorded: the exact wording of the
+status line after "Load kit file..." (the sound did change). Versions 1.0.0 and 1.1.0 are complete.
 
 ## Install
 1. Download `ELXAR-Two-macOS` from the latest run's Artifacts (GitHub, Actions tab) and unzip it.
@@ -113,8 +113,17 @@ VST3 (universal, macOS 11+, ad-hoc signed), zipped as `ELXAR-Two-macOS` with the
 licence texts, the list of firmware changes and `SOURCE.txt` (which names the exact commit the build was made from).
 
 ## Test history
-Version 1.1.0 (kit files and Random kit): automatic tests passed on every run (kit test, plugin test, engine test,
-memory checker). Not yet tested in Logic.
+Version 1.1.0 (done, tested Nov 10, 2026): kit files and Random kit. Automatic tests passed on every run (kit test,
+plugin test, engine test, memory checker). Tested on both test Macs: Logic Pro 10.7.8 on macOS 12.7.8 (Intel) and
+Logic Pro 11.2 on macOS Tahoe (Apple silicon). All 9 checks answered YES: the title shows version 1.1.0; a new
+instance shows "Kit: Initkit"; Random kit pressed six times with the sequencer running gave sound on every voice and
+nothing harsh or clipping (no bad kit to report); "How wild" at 0 % sounds like the starting kit; Store kit in slot 3,
+another Random kit, then Recall kit brings back the earlier sound and name, and the slot list shows the name; kit name
+and slot name survive save and reopen; "Load kit file..." with a `.SND` file changes the sound; dragging a `.SND` file
+onto the Sound page loads it, and a `.PAT` file gets a red message with the sound unchanged; an LFO target of
+"Hi-hat: Filter / Frequency" (a target above 127) survives Store kit, Init kit and Recall kit. Nothing odd reported.
+Not recorded: the exact text of the status line after loading a kit file (Bryn was away from the Macs), so it is not
+known whether any values were reported as changed.
 
 Milestone 3 (done, version 1.0.0, tested Nov 10, 2026): looks and release. Tested on both test Macs: Logic Pro 10.7.8
 on macOS 12.7.8 (Intel) and Logic Pro 11.2 on macOS Tahoe (Apple silicon). All 20 checks passed: install script

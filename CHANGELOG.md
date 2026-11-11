@@ -25,6 +25,13 @@
   or silent sound, except the hi-hat and cymbal of "Kronky", which the kit itself sets to volume 0. One value (the cymbal transient of "Necro") is outside the
   list; it now goes to the first transient, as the firmware does.
 - No change to the sound engine, the sequencer or the firmware files.
+- Result (Nov 10, 2026): tested on both test Macs, Logic Pro 10.7.8 on macOS 12.7.8 (Intel) and Logic Pro 11.2 on
+  macOS Tahoe (Apple silicon). All 9 checks answered YES: title shows version 1.1.0, "Kit: Initkit" in a new instance,
+  six Random kits with every voice sounding and nothing harsh or clipping, "How wild" 0 % sounds like the starting
+  kit, kit slot store / recall brings back sound and name, names survive save and reopen, a `.SND` file loads from the
+  button and by drag and drop, a `.PAT` file is refused with a red message and the sound unchanged, and an LFO target
+  above 127 ("Hi-hat: Filter / Frequency") survives Store, Init and Recall (confirms the fix). Nothing odd reported.
+  Not recorded: the text of the status line after loading a kit file.
 
 ## 1.0.0: Milestone 3 (looks and release)
 - The window has its final look (`src/ElxarLook.h`): a dark panel with one colour per voice. Drum 1 coral, Drum 2
