@@ -758,24 +758,59 @@ SoundPage::SoundPage (ELXARTwoProcessor& p) : proc (p)
         const int slot = slotBox.getSelectedId() - 1;
         proc.storeKitSlot (slot);
         updateSlotBox();
-        kitStatus.setText ("Stored in slot " + juce::String (slot + 1), juce::dontSendNotification);
+        say ("Stored in slot " + juce::String (slot + 1));
     };
     recallButton.onClick = [this]
     {
         const int slot = slotBox.getSelectedId() - 1;
         const bool ok = proc.recallKitSlot (slot);
-        kitStatus.setText (ok ? "Recalled slot " + juce::String (slot + 1) : "Slot " + juce::String (slot + 1) + " is empty", juce::dontSendNotification);
+        say (ok ? "Recalled slot " + juce::String (slot + 1) : "Slot " + juce::String (slot + 1) + " is empty");
         refresh (false);
     };
-    initButton.onClick = [this] { proc.loadInitKit(); kitStatus.setText ("Starting kit loaded", juce::dontSendNotification); refresh (false); };
-    for (auto* b : { &storeButton, &recallButton, &initButton }) addAndMakeVisible (*b);
+    initButton.onClick = [this] { proc.loadInitKit(); say ("Starting kit loaded"); refresh (true); };
+    for (auto* b : { &storeButton, &recallButton, &initButton, &loadFileButton, &randomButton }) addAndMakeVisible (*b);
     styleCaption (kitStatus, "", 12.0f);
     kitStatus.setColour (juce::Label::textColourId, kDim);
     addAndMakeVisible (kitStatus);
+
+    // second row: the name of the kit, load a kit file, random kit
+    styleCaption (kitNameLabel, "", 13.0f, true);
+    kitNameLabel.setTooltip ("The name of the sound you have now (8 letters, like the hardware). It stays the same when you change settings.");
+    addAndMakeVisible (kitNameLabel);
+    loadFileButton.setTooltip ("Load a kit file from an LXR-02 (.SND). You can also drag a .SND file onto this page. The kit replaces the current sound; the patterns stay as they are.");
+    loadFileButton.onClick = [this]
+    {
+        chooser = std::make_unique<juce::FileChooser> ("Choose an LXR-02 kit file (.SND)", lastKitFolder, "*.snd;*.SND");
+        juce::Component::SafePointer<SoundPage> safe (this);
+        chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                              [safe] (const juce::FileChooser& fc)
+                              {
+                                  if (safe == nullptr) return;
+                                  const auto f = fc.getResult();
+                                  if (f != juce::File()) safe->loadKitFromFile (f);
+                              });
+    };
+    randomButton.setTooltip ("Replace the current sound with a new random kit, and give it a name. \"How wild\" decides how far it goes from the starting kit. "
+                             "Volume, pan, effect, LFOs and velocity targets are not touched by it (they are reset to the starting kit). Not happy? Press again, or Recall kit.");
+    randomButton.onClick = [this]
+    {
+        const auto name = proc.makeRandomKit ((float) (wildSlider.getValue() / 100.0));
+        say ("Random kit " + name);
+        refresh (true);
+    };
+    styleCaption (wildCaption, "How wild", 12.0f);
+    addAndMakeVisible (wildCaption);
+    styleSlider (wildSlider, 44);
+    wildSlider.setRange (0.0, 100.0, 1.0);
+    wildSlider.setValue (50.0, juce::dontSendNotification);
+    wildSlider.setTextValueSuffix (" %");
+    wildSlider.setTooltip ("0 % gives the starting kit, 100 % changes everything as far as it goes");
+    addAndMakeVisible (wildSlider);
     slotBox.setSelectedId (1, juce::dontSendNotification);
     updateSlotBox();
     voiceButtons[0].setToggleState (true, juce::dontSendNotification);
     showVoice (0);
+    refresh (false);   // fills in the kit name
 }
 
 void SoundPage::updateSlotBox()
@@ -784,8 +819,38 @@ void SoundPage::updateSlotBox()
     const int selected = juce::jmax (1, slotBox.getSelectedId());
     slotBox.clear (juce::dontSendNotification);
     for (int i = 0; i < ELXARTwoProcessor::kNumKitSlots; ++i)
-        slotBox.addItem (juce::String (i + 1) + (proc.isKitSlotUsed (i) ? "  (kit stored)" : "  (empty)"), i + 1);
+    {
+        const auto name = proc.getKitSlotName (i);
+        slotBox.addItem (juce::String (i + 1) + (proc.isKitSlotUsed (i) ? "  " + (name.isEmpty() ? juce::String ("(kit stored)") : name) : "  (empty)"), i + 1);
+    }
     slotBox.setSelectedId (selected, juce::dontSendNotification);
+}
+
+void SoundPage::say (const juce::String& text, bool ok)
+{
+    kitStatus.setColour (juce::Label::textColourId, ok ? kDim : kWarning);
+    kitStatus.setText (text, juce::dontSendNotification);
+}
+
+void SoundPage::loadKitFromFile (const juce::File& f)
+{
+    lastKitFolder = f.getParentDirectory();
+    const auto r = proc.loadKitFile (f);
+    say (r.message, r.ok);
+        refresh (true);
+}
+
+bool SoundPage::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    for (const auto& f : files)
+        if (juce::File (f).hasFileExtension ("snd")) return true;
+    return false;
+}
+
+void SoundPage::filesDropped (const juce::StringArray& files, int, int)
+{
+    for (const auto& f : files)
+        if (juce::File (f).hasFileExtension ("snd")) { loadKitFromFile (juce::File (f)); return; }
 }
 
 void SoundPage::showVoice (int stripIndex)
@@ -802,6 +867,11 @@ void SoundPage::showVoice (int stripIndex)
 void SoundPage::refresh (bool alsoKitSlots)
 {
     for (auto* c : controls) c->refresh();
+    {
+        const auto name = proc.getKitName();
+        const auto text = "Kit: " + (name.isEmpty() ? juce::String ("(no name)") : name);
+        if (kitNameLabel.getText() != text) kitNameLabel.setText (text, juce::dontSendNotification);
+    }
     if (alsoKitSlots) updateSlotBox();
 }
 
@@ -832,6 +902,13 @@ void SoundPage::resized()
     initButton.setBounds (top.removeFromLeft (70).reduced (1, 2));
     top.removeFromLeft (8);
     kitStatus.setBounds (top);
+    auto second = area.removeFromTop (26);
+    kitNameLabel.setBounds (second.removeFromLeft (190));
+    loadFileButton.setBounds (second.removeFromLeft (120).reduced (1, 2));
+    randomButton.setBounds (second.removeFromLeft (100).reduced (1, 2));
+    second.removeFromLeft (14);
+    wildCaption.setBounds (second.removeFromLeft (58));
+    wildSlider.setBounds (second.removeFromLeft (190).reduced (0, 2));
     area.removeFromTop (8);
 
     // The parameters in columns, a heading above each group. A group is never split over two columns.

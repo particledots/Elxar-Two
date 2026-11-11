@@ -46,6 +46,28 @@ jobs:
             echo "::notice::ENGINE TEST intel: Rosetta not available on this runner, skipped"
           fi
 
+      - name: Kit test (.SND kit file reader and Random kit against the real engine)
+        run: |
+          cmake --build build --target kit_test -j4 > kit_log.txt 2>&1 || {
+            grep -E "error|Error" kit_log.txt | head -8 | while IFS= read -r line; do echo "::error::KIT TEST BUILD - $line"; done
+            tail -20 kit_log.txt; exit 1; }
+          set +e
+          arch -arm64 build/kit_test > kit_result.txt 2>&1
+          STATUS=$?
+          set -e
+          cat kit_result.txt
+          if [ $STATUS -ne 0 ] || ! grep -q "RESULT: all kit checks passed" kit_result.txt; then
+            echo "::error::KIT TEST stopped with exit status $STATUS; last line - $(tail -1 kit_result.txt)"
+            grep FAIL kit_result.txt | while IFS= read -r line; do echo "::error::KIT TEST - $line"; done
+            exit 1
+          fi
+          # Intel half through Rosetta when available. Reported, does not stop the build.
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then
+            arch -x86_64 build/kit_test > kit_result_intel.txt 2>&1 || true
+            tail -2 kit_result_intel.txt
+            grep -q "RESULT: all kit checks passed" kit_result_intel.txt && echo "::notice::KIT TEST intel (Rosetta) - all checks passed" || echo "::warning::KIT TEST intel (Rosetta) did not pass - $(tail -1 kit_result_intel.txt)"
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: ELXAR-Two-test-renders

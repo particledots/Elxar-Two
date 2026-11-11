@@ -142,10 +142,12 @@ private:
 };
 
 // The "Sound" page: every sound parameter of one voice, and the kit slots.
-class SoundPage : public juce::Component
+class SoundPage : public juce::Component, public juce::FileDragAndDropTarget
 {
 public:
     explicit SoundPage (ELXARTwoProcessor&);
+    bool isInterestedInFileDrag (const juce::StringArray& files) override;
+    void filesDropped (const juce::StringArray& files, int x, int y) override;
     void resized() override;
     void paint (juce::Graphics&) override;
     void refresh (bool alsoKitSlots);
@@ -153,13 +155,19 @@ public:
 private:
     void showVoice (int stripIndex);
     void updateSlotBox();
+    void loadKitFromFile (const juce::File&);
+    void say (const juce::String& text, bool ok = true);   // the line of text next to the kit buttons
 
     ELXARTwoProcessor& proc;
     int shownStrip = -1;
     std::array<juce::TextButton, (size_t) ELXARTwoProcessor::kNumStrips> voiceButtons;
-    juce::Label kitCaption, kitStatus;
+    juce::Label kitCaption, kitStatus, kitNameLabel, wildCaption;
     juce::ComboBox slotBox;
     juce::TextButton storeButton { "Store kit" }, recallButton { "Recall kit" }, initButton { "Init kit" };
+    juce::TextButton loadFileButton { "Load kit file..." }, randomButton { "Random kit" };
+    juce::Slider wildSlider;
+    std::unique_ptr<juce::FileChooser> chooser;
+    juce::File lastKitFolder;
     juce::OwnedArray<KitControl> controls;
     struct Header { juce::String text; juce::Rectangle<int> bounds; };
     std::vector<Header> headers;
@@ -170,6 +178,7 @@ class ELXARTwoEditor : public juce::AudioProcessorEditor, private juce::Timer
 public:
     explicit ELXARTwoEditor (ELXARTwoProcessor&);
     ~ELXARTwoEditor() override;
+    void showSoundPage() { tabs.setCurrentTabIndex (1); }   // used by the plugin test to draw the Sound page
 
     void paint (juce::Graphics&) override;
     void resized() override;

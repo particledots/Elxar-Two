@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.1.0: kit files and Random kit
+- **Load kit file...** (Sound page): reads an LXR-02 kit file (`.SND`, 255 bytes: 8 name bytes + 247 values). You can
+  also drag a `.SND` file onto the Sound page. The layout was checked against the firmware's preset manager
+  (`presetManager.c`, commit a43cd4f): name, then one byte per sound parameter; a short file is padded with 0; the
+  firmware's own rule for modulation targets past the end of the list (set to 0) is applied. Other files (a
+  pattern file, for example) are refused with a reason. The kit replaces the whole sound; patterns stay.
+- **Random kit** with a **How wild** slider (0 % = the starting kit): a new sound made from ranges that suit each voice,
+  with a name made from the sound (for example "DEEPRUST": how low the drums are tuned, then how gritty, long or
+  short the kit is). Volume, pan, "To FX", the effect, LFOs and velocity targets are not touched.
+- **Kit names.** The window shows the name of the current kit; each of the 8 kit slots remembers its name; both are
+  saved with the Logic project. A project saved with 1.0.0 opens with no name.
+- **Fix:** the velocity target and the LFO target of each voice are positions in the firmware's list of 229
+  modulation targets, but the plugin cut every kit value at 127, so a target above 127 (most of the cymbal and
+  hi-hat targets) could not be chosen, stored or recalled. Now they go up to 228. A project saved with 1.0.0 opens
+  unchanged (a target that was cut at 127 stays as it was saved).
+- New automatic test `kit_test` (reads kit files, makes thousands of random kits and renders every voice of
+  hundreds of them): no broken sound, at most 0.5 % of voices silent, none clipping. The engine was also fed 3,300
+  fully random kits under the memory checker: no memory error beyond the two harmless notes already known.
+- The plugin test checks loading a kit file (also from disk), refusing wrong files, names with slots and projects,
+  targets above 127, Random kit, and draws the Sound page.
+- No change to the sound engine, the sequencer or the firmware files.
+
 ## 1.0.0: Milestone 3 (looks and release)
 - The window has its final look (`src/ElxarLook.h`): a dark panel with one colour per voice. Drum 1 coral, Drum 2
   orange, Drum 3 yellow, Snare green, Hi-hat cyan, Cymbal violet. The colour is on the voice's strip (top bar, name,

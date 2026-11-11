@@ -8,9 +8,9 @@ Six voices (three drums, snare, hi-hat, cymbal), the firmware's effect unit, and
 locked to Logic's transport, in a window with one colour per voice.
 
 ## Status
-Version 1.0.0 (Milestone 3: looks and release). The window has its final look, the licences are checked, and the
-download contains the installer, the licence texts and a pointer to the exact source. Tested in Logic on both test
-Macs on Nov 10, 2026: all 20 checks passed (see Test history). The project is complete.
+Version 1.1.0: kit files and Random kit (added on top of the finished 1.0.0). Version 1.0.0 was tested in Logic on
+both test Macs on Nov 10, 2026: all 20 checks passed (see Test history). Version 1.1.0 has passed the automatic
+tests (kit file reader, Random kit, plugin test) and is waiting for its test in Logic on both Macs.
 
 ## Install
 1. Download `ELXAR-Two-macOS` from the latest run's Artifacts (GitHub, Actions tab) and unzip it.
@@ -39,7 +39,11 @@ approval the first time (`INSTALL.txt` in the zip says what to do).
     without changing it. Click a row's name: select the row. The step that is playing lights up; the selected step
     has a white frame. Letters on a step: F flam, < or > shifted, % does not always play, N pitch changed,
     A automation.
-- **Sound page**: every sound parameter of one voice, and eight kit slots (Store kit, Recall kit, Init kit).
+- **Sound page**: every sound parameter of one voice, and eight kit slots (Store kit, Recall kit, Init kit). Under
+  the slots: the **name of the kit** (8 letters, like the hardware), **Load kit file...** (an LXR-02 kit file, `.SND`;
+  or drag a `.SND` file onto the page) and **Random kit** with a **How wild** slider. A kit slot remembers the kit's
+  name. Loading a kit or making a random kit replaces the whole sound (all six voices and the effect); the patterns
+  are not touched.
 - **Effect and master**: one effect at a time (Drive, Ring mod, Compressor, Delay, Reverb) for the voices with
   "To FX" switched on, with Kind, Dry / wet and four knobs whose names change with the effect; Master level.
 - **Keys**: C1 Drum 1, D1 Drum 2, E1 Drum 3, F1 Snare, G1 Hi-hat closed, A1 Hi-hat open, B1 Cymbal (Logic's note
@@ -67,6 +71,17 @@ approval the first time (`INSTALL.txt` in the zip says what to do).
 - The sliders show the firmware's raw values (0 to 127); the hardware shows some of them as -63 to +63.
 - Tempo-synced LFOs use the tempo rounded to a whole BPM (as the firmware does). The sequencer itself follows
   Logic's exact tempo.
+- **Kit files.** Only `.SND` kit files are read (the hardware's kit: 8 name bytes + 247 values = 255 bytes; layout
+  checked against the firmware's preset manager). Pattern, song and project files are refused. A short file (older
+  firmware) loads with the missing values set to 0, as the hardware does. Values the window cannot show (a list
+  position past the end of its list, a number above 127) are brought back into range, and the status line says how
+  many. Kits from other people are their work: they are not part of ELXAR-Two and are not in this repository.
+  Not built: saving a kit as a `.SND` file, reading pattern files, a kit per pattern.
+- **Random kit** is a guess from the firmware's parameter meanings, made without a hardware LXR-02 to listen to.
+  The automatic test checks that its kits are not silent, not broken and not clipping; whether they sound good is
+  for the ear. It leaves volume, pan, "To FX", the effect, LFOs and velocity targets at the starting kit's values.
+  Found while testing: on the hi-hat and the cymbal the Pulse waveform is silent at pulse width 0 (and Noise on
+  the hi-hat's main oscillator is nearly silent); Random kit avoids them.
 - The Intel build needs an Intel processor from 2012 or later.
 - There is no hardware LXR-02 to compare against; the port is checked against the source code only.
 
@@ -98,6 +113,9 @@ VST3 (universal, macOS 11+, ad-hoc signed), zipped as `ELXAR-Two-macOS` with the
 licence texts, the list of firmware changes and `SOURCE.txt` (which names the exact commit the build was made from).
 
 ## Test history
+Version 1.1.0 (kit files and Random kit): automatic tests passed on every run (kit test, plugin test, engine test,
+memory checker). Not yet tested in Logic.
+
 Milestone 3 (done, version 1.0.0, tested Nov 10, 2026): looks and release. Tested on both test Macs: Logic Pro 10.7.8
 on macOS 12.7.8 (Intel) and Logic Pro 11.2 on macOS Tahoe (Apple silicon). All 20 checks passed: install script
 ("Installed" twice, then "Done"); a project saved with 0.2.0 opens with its patterns and sounds; the title shows

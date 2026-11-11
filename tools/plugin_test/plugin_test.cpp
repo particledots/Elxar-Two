@@ -11,6 +11,7 @@
 #include <thread>
 #include <vector>
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 
 extern "C" {
 #include "Parameters.h"
@@ -253,6 +254,84 @@ int main (int argc, char** argv)
         q2->setStateInformation (savedAgain.getData(), (int) savedAgain.getSize());
         check (q2->getStep (9, 6, 40).velocity == 77 && q2->getKitParam (PAR_FMAMNT1) == 77 && q2->recallKitSlot (2), "a second save and load gives the same");
 
+        // ------------------------------------------------------------ kit files, kit names and Random kit (1.1.0)
+        {
+            // a kit file the way the hardware writes it: 8 name bytes, then the 247 values
+            auto makeFile = [] (const char* name)
+            {
+                std::vector<uint8_t> f (255, 0);
+                for (int i = 0; i < 8 && name[i] != 0; ++i) f[(size_t) i] = (uint8_t) name[i];
+                for (int i = 0; i < 247; ++i) f[(size_t) (8 + i)] = elxar_init_kit_value (i);
+                f[8 + PAR_COARSE2] = 71;           // a value that is a host knob (Drum 2 pitch)
+                f[8 + PAR_FMAMNT3] = 55;           // a plain value
+                f[8 + PAR_TARGET_LFO5] = 200;      // a modulation target above 127
+                f[8 + PAR_FX_TYPE] = 4;            // Delay
+                return f;
+            };
+            auto file = makeFile ("TESTKIT");
+            const auto res = p->loadKitData (file.data(), file.size(), "x");
+            r.run (4);
+            check (res.ok && p->getKitName() == "TESTKIT" && p->getKitParam (PAR_COARSE2) == 71 && p->getKitParam (PAR_FMAMNT3) == 55 && p->getKitParam (PAR_FX_TYPE) == 4
+                   && p->getKitParam (PAR_TARGET_LFO5) == 200 && p->apvts.getRawParameterValue ("v2_pitch")->load() == 71.0f,
+                   "a kit file loads: name, a host knob, a plain value, the effect, a target above 127");
+            check (elxar_get_param (PAR_COARSE2) == 71 && elxar_get_param (PAR_FMAMNT3) == 55 && elxar_get_param (PAR_FX_TYPE) == 4, "...and the values reach the engine");
+
+            std::vector<uint8_t> big (3663, 1);
+            const auto refused = p->loadKitData (big.data(), big.size(), "x");
+            check (! refused.ok && refused.message.isNotEmpty() && p->getKitName() == "TESTKIT" && p->getKitParam (PAR_COARSE2) == 71, "a wrong file is refused with a reason and leaves the sound alone");
+
+            const auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("elxar_kit_test");
+            dir.createDirectory();
+            const auto onDisk = dir.getChildFile ("07-DISKFILE.SND");
+            auto file2 = makeFile ("DISKKIT");
+            onDisk.replaceWithData (file2.data(), file2.size());
+            const auto named = p->loadKitFile (onDisk);
+            auto file3 = makeFile ("");
+            const auto nameless = dir.getChildFile ("03-FALLBK.snd");
+            nameless.replaceWithData (file3.data(), file3.size());
+            const auto res3 = p->loadKitFile (nameless);
+            const bool fallback = res3.ok && p->getKitName() == "FALLBK";
+            const auto notKit = dir.getChildFile ("notes.txt");
+            notKit.replaceWithText ("hello");
+            check (named.ok && fallback && ! p->loadKitFile (notKit).ok && ! p->loadKitFile (dir.getChildFile ("missing.snd")).ok,
+                   "Load from a .SND file on disk; a nameless kit takes the file name; other files and missing files are refused");
+            p->loadKitFile (onDisk);
+            check (p->getKitName() == "DISKKIT", "the name inside the file wins over the file name");
+            dir.deleteRecursively();
+
+            // names with the kit slots and with the project
+            p->storeKitSlot (4);
+            p->loadInitKit();
+            const bool initName = p->getKitName() == "Initkit";
+            const bool recalledName = p->recallKitSlot (4) && p->getKitName() == "DISKKIT" && p->getKitSlotName (4) == "DISKKIT" && p->getKitSlotName (3).isEmpty();
+            juce::MemoryBlock saved3;
+            p->getStateInformation (saved3);
+            auto q3 = makeProcessor (host2, rate, block);
+            q3->setStateInformation (saved3.getData(), (int) saved3.getSize());
+            check (initName && recalledName && q3->getKitName() == "DISKKIT" && q3->getKitSlotName (4) == "DISKKIT" && q3->getKitParam (PAR_TARGET_LFO5) == 200
+                   && q3->getKitParam (PAR_COARSE2) == 71, "kit names follow Init, Store and Recall kit and come back with the project (targets above 127 too)");
+
+            // Random kit
+            p->loadInitKit();
+            const juce::String n1 = p->makeRandomKit (0.7f, 42u);
+            const auto k1 = p->currentKit();
+            r.run (4);
+            const bool reached = elxar_get_param (PAR_COARSE1) == p->getKitParam (PAR_COARSE1) && elxar_get_param (PAR_VELOD2) == p->getKitParam (PAR_VELOD2);
+            const juce::String n2 = p->makeRandomKit (0.7f, 42u);
+            p->makeRandomKit (0.7f, 43u);
+            const auto k3 = p->currentKit();
+            bool differs = false;
+            for (int i = 0; i < 247; ++i) differs = differs || k1[(size_t) i] != elxar_init_kit_value (i);
+            check (n1.isNotEmpty() && n1.length() <= 8 && n1 == n2 && k1 != k3 && differs && reached,
+                   "Random kit: gets a name of up to 8 letters, the same seed gives the same kit, it reaches the engine");
+            p->makeRandomKit (0.0f, 5u);
+            bool sameAsInit = true;
+            for (int i = 0; i < 247; ++i) sameAsInit = sameAsInit && p->getKitParam (i) == (int) elxar_init_kit_value (i);
+            check (sameAsInit, "Random kit with wild at 0 gives the starting kit");
+            p->loadInitKit();
+            r.run (4);
+        }
+
         // a project saved with Milestone 1: 4 patterns of 7 rows as hexadecimal words
         {
             juce::ValueTree old ("ELXARTwo");
@@ -399,6 +478,32 @@ int main (int argc, char** argv)
                 }
             }
         }
+        // the Sound page (kit name, Load kit file, Random kit): draw it too, with a named random kit loaded
+        bool soundDrawn = false;
+        {
+            p->makeRandomKit (0.8f, 2024u);
+            std::unique_ptr<juce::AudioProcessorEditor> window (p->createEditor());
+            if (auto* e = dynamic_cast<ELXARTwoEditor*> (window.get()))
+            {
+                e->showSoundPage();
+                window->setSize (1100, 820);
+                const juce::Image picture = window->createComponentSnapshot (window->getLocalBounds());
+                std::set<juce::uint32> seen;
+                for (int y = 2; y < picture.getHeight(); y += 7)
+                    for (int x = 2; x < picture.getWidth(); x += 7)
+                        seen.insert (picture.getPixelAt (x, y).getARGB());
+                soundDrawn = seen.size() >= 20;
+                if (argc > 1)
+                {
+                    juce::File out = juce::File::getCurrentWorkingDirectory().getChildFile (argv[1]).getChildFile ("sound-page.png");
+                    out.deleteFile();
+                    juce::FileOutputStream stream (out);
+                    if (stream.openedOk()) juce::PNGImageFormat().writeImageToStream (picture, stream);
+                }
+            }
+            p->loadInitKit();
+        }
+        check (soundDrawn, "the Sound page draws itself");
         check (opened, "the plugin window opens and closes twice");
         check (drawn, "the plugin window draws itself at 100 % and 75 % (" + juce::String (colours) + " different colours)");
     }

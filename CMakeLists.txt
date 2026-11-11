@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(ELXAR_Two VERSION 1.0.0 LANGUAGES C CXX)
+project(ELXAR_Two VERSION 1.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -66,6 +66,15 @@ target_link_libraries(engine_test PRIVATE elxar_core)
 target_compile_options(engine_test PRIVATE -g)
 if(UNIX AND NOT APPLE)
   target_link_libraries(engine_test PRIVATE m)
+endif()
+
+# Kit test: the .SND kit file reader and the Random kit maker against the real engine. No JUCE either.
+add_executable(kit_test tools/kit_test/kit_test.cpp)
+target_include_directories(kit_test PRIVATE src)
+target_link_libraries(kit_test PRIVATE elxar_core)
+target_compile_options(kit_test PRIVATE -g)
+if(UNIX AND NOT APPLE)
+  target_link_libraries(kit_test PRIVATE m)
 endif()
 
 option(ELXAR_BUILD_PLUGIN "Build the AU / VST3 plugin (downloads JUCE)" ON)

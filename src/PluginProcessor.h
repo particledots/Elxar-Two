@@ -108,6 +108,19 @@ public:
     void storeKitSlot (int slot);
     bool recallKitSlot (int slot);                                        // false = empty slot
     bool isKitSlotUsed (int slot) const;
+    static int maxKitValue (int par);                                     // 127, except the 12 modulation targets (up to 228)
+
+    // The name of the kit (up to 8 letters, like the hardware's). Loaded from a kit file, made up by "Random kit", or
+    // "Initkit"; kept with the Logic project and with each kit slot. Empty = the sound was edited from scratch or the name is unknown.
+    juce::String getKitName() const;
+    juce::String getKitSlotName (int slot) const;
+    // Loads an LXR-02 kit file (.SND), see KitFile.h. The message says what happened, in plain words (also when it failed).
+    struct LoadResult { bool ok = false; juce::String message; };
+    LoadResult loadKitFile (const juce::File& file);
+    LoadResult loadKitData (const void* data, size_t size, const juce::String& fallbackName);
+    // Replaces the sound by a random kit (see KitRandom.h). wild 0..1. Returns the name it gave the kit.
+    juce::String makeRandomKit (float wild, uint32_t seed);
+    juce::String makeRandomKit (float wild);                              // with a seed from the system
 
     void auditionRow (int row) { pendingHits.fetch_or (1u << (unsigned) row); }
 
@@ -154,6 +167,8 @@ private:
     std::atomic<bool> clipboardValid { false };
     std::array<Kit, (size_t) kNumKitSlots> kitSlots {};
     std::array<bool, (size_t) kNumKitSlots> kitSlotUsed {};
+    juce::String kitName;                                                  // guarded by modelLock
+    std::array<juce::String, (size_t) kNumKitSlots> kitSlotNames {};       // guarded by modelLock
     std::array<std::atomic<uint32_t>, (size_t) kNumPatterns> dirtyRows {};   // bit 0..6 = row, bit 7 = shuffle
     std::atomic<bool> anyDirty { false };
     std::atomic<uint32_t> modelVersion { 0 };

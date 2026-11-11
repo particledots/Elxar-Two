@@ -1,6 +1,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "SoundParams.h"
+#include "KitFile.h"
+#include "KitRandom.h"
 #include <algorithm>
 #include <cmath>
 #include <mutex>
@@ -83,6 +85,7 @@ ELXARTwoProcessor::ELXARTwoProcessor()
     // ---- the kit: start from the firmware's init kit ----
     for (int p = 0; p < kNumKitParams; ++p)
         kitValues[(size_t) p].store ((int) elxar_init_kit_value (p));
+    kitName = "Initkit";
     kitSent.fill (-1);
 
     for (int s = 0; s < kNumStrips; ++s)
@@ -648,6 +651,13 @@ juce::File ELXARTwoProcessor::writePatternMidiFile (int pattern, int bars) const
 // =========================================================================================================
 // Kit (the complete sound)
 // =========================================================================================================
+// Almost every kit value is 0..127. The velocity and LFO targets are positions in the firmware's list of modulation
+// targets, which has 229 entries, so they go up to 228. (Before version 1.1.0 these were wrongly cut at 127.)
+int ELXARTwoProcessor::maxKitValue (int par)
+{
+    return elxar::kitfile::isTargetParam (par) ? juce::jmax (127, elxar_num_mod_targets() - 1) : 127;
+}
+
 int ELXARTwoProcessor::getKitParam (int par) const
 {
     if (par < 0 || par >= kNumKitParams) return 0;
@@ -657,7 +667,7 @@ int ELXARTwoProcessor::getKitParam (int par) const
 void ELXARTwoProcessor::setKitParam (int par, int value)
 {
     if (par < 0 || par >= kNumKitParams) return;
-    value = juce::jlimit (0, 127, value);
+    value = juce::jlimit (0, maxKitValue (par), value);
     const auto& l = kitLinks[(size_t) par];
     if (l.param != nullptr)   // one of the host parameters: go through the host so Logic and the knobs on screen follow
     {
@@ -675,7 +685,7 @@ ELXARTwoProcessor::Kit ELXARTwoProcessor::currentKit() const
 {
     Kit k {};
     for (int p = 0; p < kNumKitParams; ++p)
-        k[(size_t) p] = (uint8_t) juce::jlimit (0, 127, wantedKitValue (p));
+        k[(size_t) p] = (uint8_t) juce::jlimit (0, maxKitValue (p), wantedKitValue (p));
     return k;
 }
 
@@ -692,6 +702,70 @@ void ELXARTwoProcessor::loadInitKit()
     for (int p = 0; p < kNumKitParams; ++p)
         k[(size_t) p] = elxar_init_kit_value (p);
     applyKit (k);
+    const juce::ScopedLock lock (modelLock);
+    kitName = "Initkit";   // the name inside the firmware's own init kit
+}
+
+juce::String ELXARTwoProcessor::getKitName() const
+{
+    const juce::ScopedLock lock (modelLock);
+    return kitName;
+}
+
+juce::String ELXARTwoProcessor::getKitSlotName (int slot) const
+{
+    if (slot < 0 || slot >= kNumKitSlots) return {};
+    const juce::ScopedLock lock (modelLock);
+    return kitSlotNames[(size_t) slot];
+}
+
+ELXARTwoProcessor::LoadResult ELXARTwoProcessor::loadKitData (const void* data, size_t size, const juce::String& fallbackName)
+{
+    const auto r = elxar::kitfile::parse (static_cast<const uint8_t*> (data), size, elxar_num_mod_targets());
+    if (! r.ok)
+        return { false, juce::String (r.error) };
+    Kit k {};
+    for (size_t i = 0; i < k.size(); ++i) k[i] = r.params[i];
+    applyKit (k);
+    juce::String name (r.name);
+    if (name.isEmpty()) name = fallbackName.substring (0, elxar::kitfile::kNameBytes);
+    {
+        const juce::ScopedLock lock (modelLock);
+        kitName = name;
+    }
+    juce::String message = "Loaded kit " + (name.isEmpty() ? juce::String ("(no name)") : name);
+    if (r.note.size() > 0) message << " - " << juce::String (r.note);
+    if (r.adjusted > 0) message << " - " << r.adjusted << (r.adjusted == 1 ? " value" : " values") << " outside the range the window can show " << (r.adjusted == 1 ? "was" : "were") << " changed";
+    return { true, message };
+}
+
+ELXARTwoProcessor::LoadResult ELXARTwoProcessor::loadKitFile (const juce::File& file)
+{
+    if (! file.existsAsFile())
+        return { false, "That file is not there: " + file.getFileName() };
+    if (! file.hasFileExtension ("snd"))
+        return { false, "That is not a kit file (kit files end in .SND): " + file.getFileName() };
+    juce::MemoryBlock block;
+    if (! file.loadFileAsData (block))
+        return { false, "The file could not be read: " + file.getFileName() };
+    return loadKitData (block.getData(), block.getSize(), file.getFileNameWithoutExtension().fromFirstOccurrenceOf ("-", false, false));
+}
+
+juce::String ELXARTwoProcessor::makeRandomKit (float wild, uint32_t seed)
+{
+    const auto r = elxar::randomkit::make (seed, wild, elxar_num_mod_targets());
+    Kit k {};
+    for (size_t i = 0; i < k.size(); ++i) k[i] = r.params[i];
+    applyKit (k);
+    const juce::String name (r.name);
+    const juce::ScopedLock lock (modelLock);
+    kitName = name;
+    return name;
+}
+
+juce::String ELXARTwoProcessor::makeRandomKit (float wild)
+{
+    return makeRandomKit (wild, (uint32_t) juce::Random::getSystemRandom().nextInt());
 }
 
 void ELXARTwoProcessor::storeKitSlot (int slot)
@@ -701,6 +775,7 @@ void ELXARTwoProcessor::storeKitSlot (int slot)
     const juce::ScopedLock lock (modelLock);
     kitSlots[(size_t) slot] = k;
     kitSlotUsed[(size_t) slot] = true;
+    kitSlotNames[(size_t) slot] = kitName;
 }
 
 bool ELXARTwoProcessor::recallKitSlot (int slot)
@@ -713,6 +788,8 @@ bool ELXARTwoProcessor::recallKitSlot (int slot)
         k = kitSlots[(size_t) slot];
     }
     applyKit (k);
+    const juce::ScopedLock lock (modelLock);
+    kitName = kitSlotNames[(size_t) slot];
     return true;
 }
 
@@ -779,7 +856,7 @@ bool kitFromHex (const juce::String& hex, ELXARTwoProcessor::Kit& k)
     juce::MemoryBlock mb;
     mb.loadFromHexString (hex);
     if (mb.getSize() != k.size()) return false;
-    for (size_t i = 0; i < k.size(); ++i) k[i] = (uint8_t) juce::jmin (127, (int) (uint8_t) mb[i]);
+    for (size_t i = 0; i < k.size(); ++i) k[i] = (uint8_t) juce::jmin (ELXARTwoProcessor::maxKitValue ((int) i), (int) (uint8_t) mb[i]);
     return true;
 }
 }
@@ -871,8 +948,12 @@ void ELXARTwoProcessor::getStateInformation (juce::MemoryBlock& dest)
     state.setProperty ("kit", kitToHex (currentKit()), nullptr);
     {
         const juce::ScopedLock lock (modelLock);
+        state.setProperty ("kitName", kitName, nullptr);
         for (int i = 0; i < kNumKitSlots; ++i)
+        {
             state.setProperty ("kitSlot" + juce::String (i + 1), kitSlotUsed[(size_t) i] ? kitToHex (kitSlots[(size_t) i]) : juce::String(), nullptr);
+            state.setProperty ("kitSlotName" + juce::String (i + 1), kitSlotUsed[(size_t) i] ? kitSlotNames[(size_t) i] : juce::String(), nullptr);
+        }
     }
     state.setProperty ("uiScale", (double) uiScale.load(), nullptr);
     state.removeProperty ("patterns", nullptr);   // the Milestone 1 format
@@ -918,8 +999,12 @@ void ELXARTwoProcessor::setStateInformation (const void* data, int size)
                 kitValues[(size_t) p].store ((int) k[(size_t) p]);
     {
         const juce::ScopedLock lock (modelLock);
+        kitName = state.getProperty ("kitName").toString().substring (0, elxar::kitfile::kNameBytes);   // projects saved before 1.1.0 have none
         for (int i = 0; i < kNumKitSlots; ++i)
+        {
             kitSlotUsed[(size_t) i] = kitFromHex (state.getProperty ("kitSlot" + juce::String (i + 1)).toString(), kitSlots[(size_t) i]);
+            kitSlotNames[(size_t) i] = kitSlotUsed[(size_t) i] ? state.getProperty ("kitSlotName" + juce::String (i + 1)).toString().substring (0, elxar::kitfile::kNameBytes) : juce::String();
+        }
     }
     setCurrentPattern ((int) state.getProperty ("currentPattern", 0));
     setUiScale ((float) (double) state.getProperty ("uiScale", 1.0));
