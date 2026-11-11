@@ -9,8 +9,8 @@ locked to Logic's transport, in a window with one colour per voice.
 
 ## Status
 Version 1.0.0 (Milestone 3: looks and release). The window has its final look, the licences are checked, and the
-download contains the installer, the licence texts and a pointer to the exact source. Built on GitHub; the test in
-Logic on both test Macs is still to come (the result will be recorded here).
+download contains the installer, the licence texts and a pointer to the exact source. Tested in Logic on both test
+Macs on Nov 10, 2026: all 20 checks passed (see Test history). The project is complete.
 
 ## Install
 1. Download `ELXAR-Two-macOS` from the latest run's Artifacts (GitHub, Actions tab) and unzip it.
@@ -98,6 +98,17 @@ VST3 (universal, macOS 11+, ad-hoc signed), zipped as `ELXAR-Two-macOS` with the
 licence texts, the list of firmware changes and `SOURCE.txt` (which names the exact commit the build was made from).
 
 ## Test history
+Milestone 3 (done, version 1.0.0, tested Nov 10, 2026): looks and release. Tested on both test Macs: Logic Pro 10.7.8
+on macOS 12.7.8 (Intel) and Logic Pro 11.2 on macOS Tahoe (Apple silicon). All 20 checks passed: install script
+("Installed" twice, then "Done"); a project saved with 0.2.0 opens with its patterns and sounds; the title shows
+version 1.0.0; each strip and grid row has its voice colour; all lettering readable on the Pattern and Sound pages;
+Mute (white, strip dimmed, voice silent), Solo and the Hit buttons; playback in time with the playing step moving;
+Logic's Cycle over bars 1 to 2 and 3 to 4, looping at least four times, with no missing or doubled hit, click or
+hanging sound (this closes the part of Milestone 2 check 4 that was open); step editing, selected-step frame and
+velocity; row length over two bars; pattern change at the end of the pattern; both generators; drag MIDI out; the
+delay effect on the snare; kit store / init / recall; all window sizes and the drag corner; save and reopen; the
+red warning and silence of a second instance. No sound problems; colours as expected.
+
 Milestone 2 (done, version 0.2.0, tested Nov 10, 2026): everything that plays and saves. Tested on both test Macs:
 Logic Pro 10.7.8 on macOS 12.7.8 (Intel) and Logic Pro 11.2 on macOS Tahoe (Apple silicon). All 21 checks passed: the
 sequencer follows Logic's transport, tempo changes and jumps to another bar; grid editing, row lengths, bars 2 to 4,

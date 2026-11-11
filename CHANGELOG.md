@@ -22,7 +22,12 @@
 - Decisions (Bryn, Nov 10, 2026): one plugin instance per Logic project stays for good; the uninstall script stays;
   the plugin is for personal use (not published as a release); faders stay (no knobs).
 - No change to the sound engine, the sequencer, the saved project format or the firmware files.
-- Result: not tested in Logic yet.
+- Result (Nov 10, 2026): tested on both test Macs, Logic Pro 10.7.8 on macOS 12.7.8 (Intel) and Logic Pro 11.2 on
+  macOS Tahoe (Apple silicon). All 20 checks passed: install script, a 0.2.0 project opens unchanged, title shows
+  version 1.0.0, colours per voice, all lettering readable, Mute / Solo / Hit, playback in time, Logic's Cycle over
+  bars 1 to 2 and 3 to 4 stays in time (closes the open part of the 0.2.0 check 4), step editing, row length, pattern
+  change, both generators, drag MIDI out, delay on the snare, kit store / init / recall, window sizes, save and
+  reopen, red warning for a second instance. No clicks, dropouts or readability problems.
 
 ## 0.2.0: Milestone 2
 - The firmware's own step sequencer (`sequencer.c`) and Euclidean generator (`EuklidGenerator.c`) are compiled into
