@@ -22,7 +22,7 @@
   targets above 127, Random kit, and draws the Sound page.
 - Checked on the 64 real kit files of the Hrtl LXR-02 DLC pack (kept outside the repository): all 64 load, none refused,
   all 255 bytes, 16 use targets above 127, and every voice of every kit plays under the memory checker with no broken
-  or silent sound except two quiet tracks of one kit. One value (the cymbal transient of "Necro") is outside the
+  or silent sound, except the hi-hat and cymbal of "Kronky", which the kit itself sets to volume 0. One value (the cymbal transient of "Necro") is outside the
   list; it now goes to the first transient, as the firmware does.
 - No change to the sound engine, the sequencer or the firmware files.
 
