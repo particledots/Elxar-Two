@@ -9,8 +9,7 @@ locked to Logic's transport, in a window with one colour per voice.
 
 ## Status
 Version 1.1.0: kit files and Random kit (added on top of the finished 1.0.0). Tested in Logic on both test Macs on
-Nov 10, 2026: all 9 checks answered YES (see Test history). One detail was not recorded: the exact wording of the
-status line after "Load kit file..." (the sound did change). Versions 1.0.0 and 1.1.0 are complete.
+Nov 10, 2026: all 9 checks answered YES (see Test history). Versions 1.0.0 and 1.1.0 are complete.
 
 ## Install
 1. Download `ELXAR-Two-macOS` from the latest run's Artifacts (GitHub, Actions tab) and unzip it.
@@ -122,8 +121,10 @@ another Random kit, then Recall kit brings back the earlier sound and name, and 
 and slot name survive save and reopen; "Load kit file..." with a `.SND` file changes the sound; dragging a `.SND` file
 onto the Sound page loads it, and a `.PAT` file gets a red message with the sound unchanged; an LFO target of
 "Hi-hat: Filter / Frequency" (a target above 127) survives Store kit, Init kit and Recall kit. Nothing odd reported.
-Not recorded: the exact text of the status line after loading a kit file (Bryn was away from the Macs), so it is not
-known whether any values were reported as changed.
+Status line after loading real kit files (photos from Bryn, later the same evening): most kits only say "Loaded kit
+NAME" (for example "Loaded kit SpaceD"); the kit "Necro" says "Loaded kit Necro - 1 value outside the range the window
+can show was changed" (its cymbal transient sound is outside the list and goes to the first one, as in the firmware).
+Bryn noticed this message on no other kit.
 
 Milestone 3 (done, version 1.0.0, tested Nov 10, 2026): looks and release. Tested on both test Macs: Logic Pro 10.7.8
 on macOS 12.7.8 (Intel) and Logic Pro 11.2 on macOS Tahoe (Apple silicon). All 20 checks passed: install script

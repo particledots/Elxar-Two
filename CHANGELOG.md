@@ -31,7 +31,8 @@
   kit, kit slot store / recall brings back sound and name, names survive save and reopen, a `.SND` file loads from the
   button and by drag and drop, a `.PAT` file is refused with a red message and the sound unchanged, and an LFO target
   above 127 ("Hi-hat: Filter / Frequency") survives Store, Init and Recall (confirms the fix). Nothing odd reported.
-  Not recorded: the text of the status line after loading a kit file.
+  Status line after loading real kit files (photos from Bryn): "Loaded kit SpaceD" for most kits; "Loaded kit Necro - 1
+  value outside the range the window can show was changed" for Necro only (the cymbal transient described above).
 
 ## 1.0.0: Milestone 3 (looks and release)
 - The window has its final look (`src/ElxarLook.h`): a dark panel with one colour per voice. Drum 1 coral, Drum 2
