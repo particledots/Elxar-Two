@@ -113,7 +113,7 @@ int main (int argc, char** argv)
             inRange = inRange && r.params[(size_t) (PAR_VEL_DEST_1 + v)] == 0 && r.params[(size_t) (PAR_TARGET_LFO1 + v)] == 0   // 255 is past the end of the target list
                       && r.params[(size_t) (PAR_AUDIO_OUT1 + v)] == 0;
             for (const auto& i : voiceParams (v))
-                if (i.kind == ParamKind::choice) inRange = inRange && r.params[(size_t) i.par] == i.numChoices - 1;
+                if (i.kind == ParamKind::choice) inRange = inRange && r.params[(size_t) i.par] == (i.par == PAR_TRANS1_WAVE + v ? 0 : i.numChoices - 1);   // an unknown transient goes back to the first, as in the firmware
                 else if (i.kind == ParamKind::onOff) inRange = inRange && r.params[(size_t) i.par] == 1;
         }
         inRange = inRange && r.params[PAR_FX_TYPE] == 5;

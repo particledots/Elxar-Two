@@ -65,7 +65,11 @@ inline int sanitise (Params& k, int numModTargets)
             auto& b = k[(size_t) i.par];
             switch (i.kind)
             {
-                case ParamKind::choice:         limit (b, i.numChoices - 1); break;
+                case ParamKind::choice:
+                    // The firmware sends an unknown transient sound back to the first one ("Snap") rather than the last.
+                    if (i.par == PAR_TRANS1_WAVE + v) { if ((int) b >= i.numChoices) { b = 0; ++changed; } }
+                    else limit (b, i.numChoices - 1);
+                    break;
                 case ParamKind::onOff:          limit (b, 1); break;
                 case ParamKind::velocityTarget:
                 case ParamKind::lfoTarget:      break;   // done above

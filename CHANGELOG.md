@@ -20,6 +20,10 @@
   fully random kits under the memory checker: no memory error beyond the two harmless notes already known.
 - The plugin test checks loading a kit file (also from disk), refusing wrong files, names with slots and projects,
   targets above 127, Random kit, and draws the Sound page.
+- Checked on the 64 real kit files of the Hrtl LXR-02 DLC pack (kept outside the repository): all 64 load, none refused,
+  all 255 bytes, 16 use targets above 127, and every voice of every kit plays under the memory checker with no broken
+  or silent sound except two quiet tracks of one kit. One value (the cymbal transient of "Necro") is outside the
+  list; it now goes to the first transient, as the firmware does.
 - No change to the sound engine, the sequencer or the firmware files.
 
 ## 1.0.0: Milestone 3 (looks and release)
